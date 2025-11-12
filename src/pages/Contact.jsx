@@ -1,7 +1,19 @@
 // src/pages/Contact.jsx
 import React, {useState} from 'react';
 import {motion} from 'framer-motion';
-import {Building, User, Mail, Phone, MessageSquare, Stethoscope, Scan, Hospital, ArrowRight} from 'lucide-react';
+import {
+    Building,
+    User,
+    Mail,
+    Phone,
+    MessageSquare,
+    Stethoscope,
+    Scan,
+    Radiation,
+    Hospital,
+    ArrowRight,
+    Syringe
+} from 'lucide-react';
 import MainLayout from '../components/layout/MainLayout';
 
 const Contact = () => {
@@ -31,9 +43,9 @@ const Contact = () => {
 
     const institutionTypes = [
         {value: 'clinic', label: 'Clínica / Consultorio', icon: Stethoscope},
-        {value: 'radiology', label: 'Centro Radiológico', icon: Scan},
+        {value: 'radiology', label: 'Centro Radiológico', icon: Radiation},
         {value: 'hospital', label: 'Hospital', icon: Hospital},
-        {value: 'laboratory', label: 'Laboratorio Clínico', icon: MessageSquare}
+        {value: 'laboratory', label: 'Laboratorio Clínico', icon: Syringe}
     ];
 
     return (

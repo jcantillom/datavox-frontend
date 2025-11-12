@@ -1,7 +1,7 @@
 // src/components/sections/UseCasesSection.jsx
 import React from 'react';
 import {motion} from 'framer-motion';
-import {Users, Scan, Building, Heart} from 'lucide-react';
+import {Users, Radiation, Building, Syringe, Hospital} from 'lucide-react';
 
 const UseCasesSection = () => {
     const useCases = [
@@ -11,17 +11,17 @@ const UseCasesSection = () => {
             description: 'Automatice historias clínicas y reduzca tiempo administrativo.'
         },
         {
-            icon: Scan,
+            icon: Radiation,
             title: 'Centros Radiológicos',
             description: 'Informes radiológicos automáticos con calidad profesional.'
         },
         {
-            icon: Users,
+            icon: Hospital,
             title: 'Hospitales',
             description: 'Solución escalable para múltiples departamentos y especialidades.'
         },
         {
-            icon: Heart,
+            icon: Syringe,
             title: 'Laboratorios',
             description: 'Documentación precisa de resultados y diagnósticos.'
         }
