@@ -208,26 +208,30 @@ const Contact = () => {
                             <div className="bg-gradient-to-br from-blue-600 to-teal-500 rounded-2xl p-8 text-white">
                                 <h2 className="text-2xl font-bold mb-4">¿Por qué DataVoxMedical?</h2>
                                 <p className="text-blue-100 mb-6 leading-relaxed">
-                                    Somos la plataforma líder en transformación de dictados médicos en documentación clínica
+                                    Somos la plataforma líder en transformación de dictados médicos en documentación
+                                    clínica
                                     automatizada.
                                     Más de 50 instituciones médicas confían en nosotros.
                                 </p>
 
                                 <div className="space-y-4">
                                     <div className="flex items-center space-x-3">
-                                        <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                                        <div
+                                            className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
                                             <Stethoscope className="w-4 h-4"/>
                                         </div>
                                         <span className="font-semibold">Para Clínicas y Consultorios</span>
                                     </div>
                                     <div className="flex items-center space-x-3">
-                                        <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                                        <div
+                                            className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
                                             <Scan className="w-4 h-4"/>
                                         </div>
                                         <span className="font-semibold">Para Centros Radiológicos</span>
                                     </div>
                                     <div className="flex items-center space-x-3">
-                                        <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                                        <div
+                                            className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
                                             <Hospital className="w-4 h-4"/>
                                         </div>
                                         <span className="font-semibold">Para Hospitales</span>
