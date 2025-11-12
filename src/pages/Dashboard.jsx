@@ -3,6 +3,7 @@ import React, {useState, useEffect} from 'react';
 import {motion} from 'framer-motion';
 import {Stethoscope, FileText, Users, Activity, LogOut, Mic, Calendar, Download, Shield} from 'lucide-react';
 import {authService} from '../services/auth';
+import AudioRecorder from '../components/AudioRecorder';
 
 const Dashboard = () => {
     const [user, setUser] = useState(null);
@@ -176,6 +177,16 @@ const Dashboard = () => {
                     ))}
                 </div>
 
+                {/* Audio Recorder Section */}
+                <motion.div
+                    initial={{opacity: 0, y: 20}}
+                    animate={{opacity: 1, y: 0}}
+                    transition={{duration: 0.6, delay: 0.3}}
+                    className="mb-8"
+                >
+                    <AudioRecorder />
+                </motion.div>
+
                 {/* Main Content Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Quick Actions */}
@@ -194,16 +205,6 @@ const Dashboard = () => {
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <motion.button
-                                whileHover={{scale: 1.02}}
-                                whileTap={{scale: 0.98}}
-                                className="p-6 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl text-white text-left group hover:from-blue-600 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-blue-500/25"
-                            >
-                                <Mic className="w-8 h-8 mb-3 group-hover:scale-110 transition-transform"/>
-                                <h3 className="font-semibold text-lg mb-2">Nuevo Dictado</h3>
-                                <p className="text-blue-100 text-sm">Iniciar historia clínica por voz</p>
-                            </motion.button>
-
                             <motion.button
                                 whileHover={{scale: 1.02}}
                                 whileTap={{scale: 0.98}}
@@ -234,6 +235,16 @@ const Dashboard = () => {
                                     className="w-8 h-8 mb-3 text-gray-600 group-hover:text-teal-600 transition-colors"/>
                                 <h3 className="font-semibold text-lg mb-2">Exportar Reportes</h3>
                                 <p className="text-gray-600 text-sm">Generar reportes mensuales</p>
+                            </motion.button>
+
+                            <motion.button
+                                whileHover={{scale: 1.02}}
+                                whileTap={{scale: 0.98}}
+                                className="p-6 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl text-white text-left group hover:from-purple-600 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-purple-500/25"
+                            >
+                                <Users className="w-8 h-8 mb-3 group-hover:scale-110 transition-transform"/>
+                                <h3 className="font-semibold text-lg mb-2">Gestión de Usuarios</h3>
+                                <p className="text-purple-100 text-sm">Administrar personal médico</p>
                             </motion.button>
                         </div>
                     </motion.div>
