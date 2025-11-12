@@ -34,25 +34,10 @@ const HeroSection = () => {
         }
     };
 
-    const hoverVariants = {
-        hover: {
-            y: -8,
-            scale: 1.02,
-            boxShadow: "0 20px 40px rgba(37, 99, 235, 0.1)",
-            transition: {
-                type: "spring",
-                stiffness: 400,
-                damping: 10
-            }
-        },
-        tap: {
-            scale: 0.98
-        }
-    };
-
     return (
         <section
             className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 to-blue-50">
+
             {/* Background Medical Pattern */}
             <div className="absolute inset-0 opacity-5">
                 <div className="absolute inset-0" style={{
@@ -134,11 +119,12 @@ const HeroSection = () => {
                         <motion.div
                             key={feature.text}
                             variants={cardVariants}
-                            whileHover="hover"
-                            whileTap="tap"
-                            variants={{...cardVariants, hover: hoverVariants.hover, tap: hoverVariants.tap}}
-                            className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200 p-6 text-center transition-all duration-300 group"
-                            style={{transition: 'all 0.3s ease'}}
+                            className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200 p-6 text-center transition-all duration-300 group hover:shadow-lg hover:border-blue-200"
+                            whileHover={{
+                                y: -5,
+                                scale: 1.02,
+                                transition: {duration: 0.2}
+                            }}
                         >
                             <div
                                 className="w-16 h-16 bg-gradient-to-br from-blue-500 to-teal-400 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:shadow-xl transition-shadow duration-300">
@@ -157,7 +143,7 @@ const HeroSection = () => {
 
                 {/* CTA Buttons */}
                 <motion.div
-                    className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16"
+                    className="flex justify-center items-center mb-16"
                     initial={{opacity: 0, y: 20}}
                     animate={{opacity: 1, y: 0}}
                     transition={{duration: 0.8, delay: 0.6}}
@@ -175,16 +161,6 @@ const HeroSection = () => {
                         <Stethoscope className="w-5 h-5 group-hover:scale-110 transition-transform duration-300"/>
                         <span>Solicitar Demo Médica</span>
                         <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300"/>
-                    </motion.button>
-
-                    <motion.button
-                        className="px-8 py-4 bg-white border-2 border-gray-300 rounded-xl font-semibold text-gray-700 flex items-center space-x-3 group hover:border-blue-300 hover:bg-blue-50 transition-all duration-300"
-                        whileHover={{scale: 1.05}}
-                        whileTap={{scale: 0.95}}
-                        transition={{type: "spring", stiffness: 400, damping: 10}}
-                    >
-                        <Play className="w-5 h-5"/>
-                        <span>Ver Caso de Éxito</span>
                     </motion.button>
                 </motion.div>
 
@@ -205,8 +181,8 @@ const HeroSection = () => {
                         <motion.div
                             key={stat.label}
                             variants={cardVariants}
-                            whileHover="hover"
-                            className="text-center p-6 bg-white/50 backdrop-blur-sm rounded-2xl border border-gray-200 transition-all duration-300 group cursor-default"
+                            className="text-center p-6 bg-white/50 backdrop-blur-sm rounded-2xl border border-gray-200 transition-all duration-300 group cursor-default hover:shadow-md"
+                            whileHover={{y: -2}}
                         >
                             <div
                                 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-600 to-teal-500 bg-clip-text text-transparent group-hover:scale-105 transition-transform duration-300">

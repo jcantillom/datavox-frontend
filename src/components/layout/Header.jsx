@@ -1,11 +1,13 @@
 // src/components/layout/Header.jsx
 import React, {useState, useEffect} from 'react';
 import {motion, AnimatePresence} from 'framer-motion';
-import {Menu, X, Stethoscope, FileText, Calendar, LogIn} from 'lucide-react';
+import {Menu, X, Stethoscope, Trophy, LogIn, Radiation} from 'lucide-react';
+import {useLocation} from 'react-router-dom';
 
 const Header = () => {
     const [isScrolled, setIsScrolled] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const location = useLocation();
 
     useEffect(() => {
         const handleScroll = () => {
@@ -17,9 +19,23 @@ const Header = () => {
 
     const navigation = [
         {name: 'Solución Clínicas', href: '#clinicas', icon: Stethoscope},
-        {name: 'Solución Radiología', href: '#radiologia', icon: FileText},
-        {name: 'Casos de Éxito', href: '#casos', icon: Calendar},
+        {name: 'Solución Radiología', href: '#radiologia', icon: Radiation},
+        {name: 'Casos de Éxito', href: '#casos', icon: Trophy},
     ];
+
+    const handleNavigationClick = (href) => {
+        if (location.pathname !== '/') {
+            // Si no estamos en la página principal, redirigir a la página principal con la ancla
+            window.location.href = `/${href}`;
+        } else {
+            // Si estamos en la página principal, hacer scroll suave
+            const element = document.getElementById(href.substring(1));
+            if (element) {
+                element.scrollIntoView({behavior: 'smooth'});
+            }
+        }
+        setIsMobileMenuOpen(false);
+    };
 
     return (
         <motion.header
@@ -80,7 +96,11 @@ const Header = () => {
                             <motion.a
                                 key={item.name}
                                 href={item.href}
-                                className="flex items-center space-x-2 text-gray-600 hover:text-blue-600 transition-colors duration-200 group font-medium"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    handleNavigationClick(item.href);
+                                }}
+                                className="flex items-center space-x-2 text-gray-600 hover:text-blue-600 transition-colors duration-200 group font-medium relative"
                                 whileHover={{y: -2}}
                                 transition={{type: "spring", stiffness: 400, damping: 10}}
                             >
@@ -130,8 +150,11 @@ const Header = () => {
                                     <motion.a
                                         key={item.name}
                                         href={item.href}
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            handleNavigationClick(item.href);
+                                        }}
                                         className="flex items-center space-x-3 p-3 rounded-lg text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 font-medium"
-                                        onClick={() => setIsMobileMenuOpen(false)}
                                         whileHover={{x: 10}}
                                     >
                                         <item.icon className="w-5 h-5"/>

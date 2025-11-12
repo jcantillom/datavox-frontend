@@ -10,6 +10,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import './styles/globals.css';
 import FeaturesSection from './components/sections/FeaturesSection';
 import UseCasesSection from './components/sections/UseCasesSection';
+import SolutionsSection from './components/sections/SolutionsSection';
 
 function App() {
     return (
@@ -29,6 +30,7 @@ function App() {
                     <MainLayout>
                         <HeroSection/>
                         <FeaturesSection/>
+                        <SolutionsSection/>
                         <UseCasesSection/>
                     </MainLayout>
                 }/>
