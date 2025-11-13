@@ -1,126 +1,81 @@
-// src/pages/Dashboard.jsx - VERSIÓN PROFESIONAL Y MODERNA
+// src/pages/Dashboard.jsx - VERSIÓN ULTRA-MODERNA (SOFT UI / LIGHT GLASSMORHPISM)
 import React, {useState, useEffect} from 'react';
 import {motion} from 'framer-motion';
 import {
-    Stethoscope,
-    FileText,
-    Users,
-    Activity,
-    LogOut,
-    Mic,
-    Calendar,
-    Download,
-    BarChart3,
-    Settings,
-    Bell,
-    Search,
-    Clock,
-    CheckCircle,
-    TrendingUp,
-    Zap,
-    Sparkles,
-    HeartPulse,
-    Scan,
-    ActivityIcon,
-    Layers, // Nuevo icono para estructura
-    Globe, // Nuevo icono para estatus
+    Stethoscope, FileText, Users, Activity, LogOut, Mic, Calendar, Download, Settings, Bell,
+    Clock, CheckCircle, TrendingUp, Brain, Zap, Sparkles, HeartPulse, Scan, ActivityIcon,
+    BarChart3, MessageSquare, ShieldCheck, Grid, TrendingDown
 } from 'lucide-react';
 import {authService} from '../services/auth';
-import AudioRecorder from '../components/AudioRecorder';
+import AudioRecorder from '../components/AudioRecorder'; // Asumo que este componente existe.
 
-// --- Configuración de Datos (Ajuste de colores y descripciones) ---
-const STATS_DATA = [
-    {
-        icon: FileText,
-        label: 'Documentos Generados',
-        value: '1,234',
-        change: '+12%',
-        trend: 'up',
-        color: 'indigo', // Indigo en lugar de solo blue
-        gradient: 'from-indigo-600 to-blue-500',
-        lightGradient: 'from-indigo-50/80 to-blue-50/80',
-        description: 'Métricas del último mes'
-    },
-    {
-        icon: Users,
-        label: 'Pacientes Atendidos',
-        value: '892',
-        change: '+8%',
-        trend: 'up',
-        color: 'teal', // Teal más moderno que emerald
-        gradient: 'from-teal-600 to-green-500',
-        lightGradient: 'from-teal-50/80 to-green-50/80',
-        description: 'Consulta de última semana'
-    },
-    {
-        icon: Activity,
-        label: 'Eficiencia de Flujo',
-        value: '45h',
-        change: '+23%',
-        trend: 'up',
-        color: 'orange', // Orange más sofisticado que amber
-        gradient: 'from-orange-600 to-red-500',
-        lightGradient: 'from-orange-50/80 to-red-50/80',
-        description: 'Tiempo ahorrado en transcripción'
-    },
-    {
-        icon: Stethoscope,
-        label: 'Dictados Procesados',
-        value: '567',
-        change: '+15%',
-        trend: 'up',
-        color: 'violet', // Violet en lugar de purple/pink
-        gradient: 'from-violet-600 to-pink-500',
-        lightGradient: 'from-violet-50/80 to-pink-50/80',
-        description: 'Total activo en la plataforma'
-    },
-];
+// --- Componentes Reutilizables de Estilo ---
 
-const QUICK_ACTIONS = [
-    {
-        title: 'Nuevo Dictado Inteligente',
-        description: 'Iniciar grabación para transcripción en tiempo real.',
-        icon: Mic,
-        gradient: 'from-red-600 to-pink-500',
-        lightGradient: 'from-red-50/80 to-pink-50/80',
-        action: () => console.log('Nuevo dictado')
-    },
-    {
-        title: 'Generar Reporte Radiológico',
-        description: 'Crear informe estructurado con IA y membrete profesional.',
-        icon: Scan,
-        gradient: 'from-orange-600 to-amber-500',
-        lightGradient: 'from-orange-50/80 to-amber-50/80',
-        action: () => console.log('Generar informe')
-    },
-    {
-        title: 'Revisar Agenda y Citas',
-        description: 'Ver pacientes programados y disponibilidad de turnos.',
-        icon: Calendar,
-        gradient: 'from-indigo-600 to-cyan-500',
-        lightGradient: 'from-indigo-50/80 to-cyan-50/80',
-        action: () => console.log('Ver agenda')
-    },
-    {
-        title: 'Exportación Masiva de Datos',
-        description: 'Generar reportes analíticos y métricas del mes.',
-        icon: Download,
-        gradient: 'from-violet-600 to-purple-500',
-        lightGradient: 'from-violet-50/80 to-purple-50/80',
-        action: (setActiveSection) => setActiveSection('reports')
-    },
-];
+// Función para obtener clases de gradiente y colores para el tema Claro
+const getGradientClasses = (color) => {
+    switch (color) {
+        case 'blue': return {bg: 'from-sky-500 to-indigo-500', text: 'text-sky-600', hoverBg: 'from-sky-500/10 to-indigo-500/10', lightBg: 'bg-sky-50/70'};
+        case 'red': return {bg: 'from-red-500 to-pink-500', text: 'text-red-600', hoverBg: 'from-red-500/10 to-pink-500/10', lightBg: 'bg-red-50/70'};
+        case 'emerald': return {bg: 'from-emerald-500 to-green-500', text: 'text-emerald-600', hoverBg: 'from-emerald-500/10 to-green-500/10', lightBg: 'bg-emerald-50/70'};
+        case 'amber': return {bg: 'from-amber-500 to-orange-500', text: 'text-amber-600', hoverBg: 'from-amber-500/10 to-orange-500/10', lightBg: 'bg-amber-50/70'};
+        case 'purple': return {bg: 'from-purple-500 to-indigo-500', text: 'text-purple-600', hoverBg: 'from-purple-500/10 to-indigo-500/10', lightBg: 'bg-purple-50/70'};
+        default: return {bg: 'from-gray-600 to-gray-700', text: 'text-gray-600', hoverBg: 'from-gray-600/10 to-gray-700/10', lightBg: 'bg-gray-100/70'};
+    }
+};
+
+const NavItem = ({icon: Icon, label, active, onClick, color}) => {
+    const {bg, text, hoverBg} = getGradientClasses(color);
+    return (
+        <motion.button
+            onClick={onClick}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left transition-all duration-300 group
+                ${active
+                // Estilo activo suave y claro
+                ? `bg-gradient-to-r ${hoverBg} ${text} border border-indigo-200/50 shadow-lg shadow-indigo-100 font-semibold`
+                : 'text-gray-600 hover:bg-white/80 hover:text-gray-900 font-medium'
+            }`}
+            whileHover={{x: 5, scale: 1.03}}
+            whileTap={{scale: 0.98}}
+        >
+            <div className={`p-2 rounded-lg transition-all duration-300
+                ${active
+                ? `bg-gradient-to-br ${bg} text-white shadow-xl shadow-indigo-500/25`
+                : 'bg-white/80 text-gray-500 group-hover:bg-gray-100 group-hover:shadow-md'
+            }`}>
+                <Icon className="w-5 h-5"/>
+            </div>
+            <span className="text-base">{label}</span>
+        </motion.button>
+    );
+};
+
+// --- Dashboard Component ---
 
 const Dashboard = () => {
     const [user, setUser] = useState(null);
     const [activeSection, setActiveSection] = useState('overview');
     const [currentTime, setCurrentTime] = useState(new Date());
 
+    // Datos de Estadísticas - Manteniendo los degradados vibrantes para el contraste
+    const [stats] = useState([
+        {icon: FileText, label: 'Docs. Generados', value: '1,234', change: '+12%', trend: 'up', color: 'blue', gradient: 'from-sky-500 to-indigo-500', lightGradient: 'from-sky-100/60 to-indigo-100/60', description: 'Este mes'},
+        {icon: Users, label: 'Pacientes Activos', value: '892', change: '+8%', trend: 'up', color: 'emerald', gradient: 'from-emerald-500 to-green-500', lightGradient: 'from-emerald-100/60 to-green-100/60', description: 'Última semana'},
+        {icon: Clock, label: 'Tiempo Ahorrado', value: '45h', change: '+23%', trend: 'up', color: 'amber', gradient: 'from-amber-500 to-orange-500', lightGradient: 'from-amber-100/60 to-orange-100/60', description: 'vs. mes anterior'},
+        {icon: Mic, label: 'Dictados Procesados', value: '567', change: '+15%', trend: 'up', color: 'purple', gradient: 'from-purple-500 to-indigo-500', lightGradient: 'from-purple-100/60 to-indigo-100/60', description: 'Total activo'},
+    ]);
+
     const recentActivities = [
-        {action: 'Historia clínica completada - Dr. Pérez', time: 'Hace 2 min', status: 'success', icon: FileText},
-        {action: 'Informe radiológico generado - Dra. García', time: 'Hace 5 min', status: 'info', icon: Scan},
-        {action: 'Backup del sistema realizado', time: 'Hace 1 hora', status: 'warning', icon: Layers},
-        {action: 'Nuevo usuario agregado - Dr. Rodríguez', time: 'Hace 2 horas', status: 'success', icon: Users},
+        {action: 'Historia clínica completada - Dr. Pérez', time: 'Hace 2 min', status: 'success'},
+        {action: 'Informe radiológico generado - Dra. García', time: 'Hace 5 min', status: 'info'},
+        {action: 'Backup del sistema realizado', time: 'Hace 1 hora', status: 'warning'},
+        {action: 'Nuevo usuario agregado - Dr. Rodríguez', time: 'Hace 2 horas', status: 'success'},
+    ];
+
+    const quickActions = [
+        {title: 'Nuevo Dictado', description: 'Iniciar grabación médica', icon: Mic, color: 'red', action: () => setActiveSection('recordings')},
+        {title: 'Informe Radiológico', description: 'Generar con membrete', icon: Scan, color: 'amber', action: () => console.log('Generar informe')},
+        {title: 'Agenda Médica', description: 'Ver pacientes programados', icon: Calendar, color: 'blue', action: () => console.log('Ver agenda')},
+        {title: 'Mensajería Segura', description: 'Comunicación interna y externa', icon: MessageSquare, color: 'emerald', action: () => console.log('Ver mensajes')},
     ];
 
     useEffect(() => {
@@ -131,24 +86,23 @@ const Dashboard = () => {
 
     const loadUserData = async () => {
         try {
-            // Simulación de carga de datos de usuario
-            // const userInfo = await authService.getCurrentUser();
-            const userInfo = {
-                full_name: 'Dr. Alejandro Soto',
-                email: 'alejandro.soto@clinic.com',
-                role: 'Cardiólogo Especialista'
-            }; // Dummy data para el ejemplo
-            setUser(userInfo);
+            const userInfo = await authService.getCurrentUser();
+            const mockUser = userInfo || { full_name: 'Dr. Andrés C.', role: 'Médico Especialista' };
+            setUser({
+                ...mockUser,
+                full_name: mockUser.full_name || 'Dr. Médico',
+                role: mockUser.role || 'Especialista',
+                initials: (mockUser.full_name || 'DM').split(' ').map(n => n[0]).join('').toUpperCase()
+            });
         } catch (error) {
             console.error('Error loading user data:', error);
-            // authService.logout(); // Descomentar en producción
+            setUser({ full_name: 'Usuario Invitado', role: 'Visitante', initials: 'UI' });
         }
     };
 
     const handleLogout = () => {
-        // authService.logout(); // Descomentar en producción
-        console.log("Logout ejecutado");
-        setUser(null);
+        console.log("Cerrando Sesión...");
+        authService.logout();
     };
 
     const getGreeting = () => {
@@ -170,237 +124,160 @@ const Dashboard = () => {
     };
 
     if (!user) {
+        // Mejorado: Loader en tema claro
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-cyan-50/20 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-gray-600 font-medium">Cargando plataforma médica avanzada...</p>
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+                <div className="text-center p-10 rounded-xl bg-white/80 shadow-2xl backdrop-blur-md">
+                    <motion.div
+                        className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-4"
+                        animate={{rotate: 360}}
+                        transition={{ease: "linear", duration: 1, repeat: Infinity}}
+                    ></motion.div>
+                    <p className="text-gray-600 font-medium">Cargando plataforma médica...</p>
                 </div>
             </div>
         );
     }
 
-    const NavItem = ({item}) => (
-        <motion.button
-            onClick={() => setActiveSection(item.id)}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left transition-all duration-300 group ${
-                activeSection === item.id
-                    ? `bg-gradient-to-r from-${item.color}-500/15 to-${item.color}-400/10 text-${item.color}-700 border border-${item.color}-200/50 shadow-lg shadow-${item.color}-500/20`
-                    : 'text-gray-600 hover:bg-white/60 hover:text-gray-900 hover:shadow-md'
-            }`}
-            whileHover={{x: 5, scale: 1.01}}
-            whileTap={{scale: 0.98}}
-        >
-            <div className={`p-2 rounded-lg ${
-                activeSection === item.id
-                    ? `bg-gradient-to-r from-${item.color}-600 to-${item.color}-500 text-white shadow-xl shadow-${item.color}-500/30`
-                    : 'bg-white/80 text-gray-500 group-hover:bg-gray-100 group-hover:shadow-md'
-            } transition-all duration-300 backdrop-blur-sm`}>
-                <item.icon className="w-4 h-4" />
-            </div>
-            <span className="font-semibold text-sm">{item.label}</span>
-        </motion.button>
-    );
-
-    const StatCard = ({stat, index}) => (
-        <motion.div
-            initial={{opacity: 0, y: 30, scale: 0.95}}
-            animate={{opacity: 1, y: 0, scale: 1}}
-            transition={{duration: 0.6, delay: index * 0.1}}
-            className="group cursor-pointer h-full"
-            whileHover={{y: -5, scale: 1.02}}
-        >
-            <div className="bg-white/70 backdrop-blur-xl rounded-2xl border border-gray-200/50 p-6 shadow-2xl hover:shadow-3xl transition-all duration-500 relative overflow-hidden h-full">
-                {/* Subtle Gradient Background */}
-                <div className={`absolute inset-0 bg-gradient-to-br ${stat.lightGradient} opacity-50`}></div>
-
-                {/* Animated Ring on Hover */}
-                <motion.div
-                    className={`absolute top-0 left-0 w-full h-full rounded-2xl border-2 border-transparent group-hover:border-${stat.color}-400/50 transition-all duration-500`}
-                />
-
-                <div className="relative z-10 flex flex-col justify-between h-full">
-                    <div className="flex items-start justify-between mb-4">
-                        <div className={`p-3 rounded-xl bg-gradient-to-br ${stat.gradient} shadow-lg shadow-${stat.color}-500/30 group-hover:scale-105 transition-all duration-300 backdrop-blur-sm`}>
-                            <stat.icon className="w-6 h-6 text-white"/>
-                        </div>
-                        <motion.div
-                            className={`flex items-center space-x-1 text-sm font-bold ${
-                                stat.trend === 'up' ? 'text-teal-600' : 'text-red-600'
-                            } bg-white/90 px-2 py-1 rounded-full border border-gray-100 backdrop-blur-sm`}
-                            whileHover={{scale: 1.1}}
-                        >
-                            <TrendingUp className="w-4 h-4"/>
-                            <span>{stat.change}</span>
-                        </motion.div>
-                    </div>
-                    <div>
-                        <h3 className="text-4xl font-extrabold mb-1 bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                            {stat.value}
-                        </h3>
-                        <p className="text-gray-900 font-semibold mb-1">{stat.label}</p>
-                        <p className="text-gray-600 text-sm">{stat.description}</p>
-                    </div>
-                </div>
-            </div>
-        </motion.div>
-    );
-
-    const QuickActionButton = ({action, index}) => (
-        <motion.button
-            key={action.title}
-            onClick={() => action.action(setActiveSection)}
-            whileHover={{scale: 1.03, y: -3}}
-            whileTap={{scale: 0.98}}
-            className={`p-6 bg-white/70 backdrop-blur-xl rounded-2xl text-left group transition-all duration-500 shadow-2xl hover:shadow-3xl relative overflow-hidden border border-gray-200/50`}
-            initial={{opacity: 0, x: -20}}
-            animate={{opacity: 1, x: 0}}
-            transition={{duration: 0.6, delay: index * 0.1}}
-        >
-            {/* Subtle Background */}
-            <div className={`absolute inset-0 bg-gradient-to-br ${action.lightGradient} opacity-50`}></div>
-
-            {/* Icon and Text */}
-            <div className="relative z-10">
-                <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${action.gradient} flex items-center justify-center mb-4 shadow-xl shadow-gray-500/20 group-hover:scale-105 transition-all duration-300 backdrop-blur-sm`}>
-                    <action.icon className="w-6 h-6 text-white"/>
-                </div>
-                <h4 className="font-bold text-gray-900 text-lg mb-2 group-hover:text-indigo-600 transition-colors duration-300">
-                    {action.title}
-                </h4>
-                <p className="text-gray-600 text-sm leading-snug">
-                    {action.description}
-                </p>
-            </div>
-        </motion.button>
-    );
-
+    // --- Estructura del Dashboard ---
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50/50 to-indigo-50/30 text-gray-900 flex">
-            {/* 1. Sidebar Navigation */}
+        // CAMBIO: Fondo principal claro suave (bg-slate-50)
+        <div className="min-h-screen bg-slate-50 text-gray-900 flex font-sans">
+            {/* Sidebar Navigation - Light Glassmorphism */}
             <motion.div
                 initial={{x: -100, opacity: 0}}
                 animate={{x: 0, opacity: 1}}
                 transition={{duration: 0.6, ease: "easeOut"}}
-                className="w-72 bg-white/70 backdrop-blur-2xl shadow-2xl border-r border-gray-200/40 flex flex-col"
+                // CAMBIO: Sidebar blanco roto para contraste
+                className="w-72 bg-white/80 backdrop-blur-3xl shadow-xl shadow-blue-100 border-r border-gray-100 flex flex-col"
             >
-                {/* Logo */}
-                <div className="p-6 border-b border-gray-200/40 bg-gradient-to-r from-white/90 to-gray-50/70">
+                {/* Logo Section */}
+                <div className="p-6 border-b border-gray-100">
                     <motion.div
                         className="flex items-center space-x-3 cursor-pointer group"
                         onClick={() => setActiveSection('overview')}
                         whileHover={{scale: 1.02}}
-                        transition={{type: "spring", stiffness: 400, damping: 10}}
+                        transition={{type: "spring", stiffness: 400, damping: 15}}
                     >
-                        <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-teal-500 rounded-xl flex items-center justify-center shadow-xl group-hover:shadow-indigo-500/50 transition-all duration-300">
-                            <Stethoscope className="w-5 h-5 text-white"/>
+                        <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                            <Stethoscope className="w-6 h-6 text-white"/>
                         </div>
                         <div>
-                            <span className="text-xl font-extrabold bg-gradient-to-r from-indigo-700 to-teal-600 bg-clip-text text-transparent">
-                                DataVox<span className="font-light">Med</span>
+                            <span className="text-xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 to-cyan-600">
+                                DataVox<span className="font-semibold">Medical</span>
                             </span>
-                            <p className="text-xs text-gray-500 font-medium tracking-wider">A.I. Platform</p>
+                            <p className="text-xs text-gray-500 font-medium tracking-wider">PLATAFORMA INTELIGENTE</p>
                         </div>
                     </motion.div>
                 </div>
 
-                {/* Navigation */}
+                {/* Navigation Links (NavItem ya ajustado a colores claros) */}
                 <nav className="flex-1 p-5 space-y-2">
                     {[
-                        {id: 'overview', label: 'Panel Principal', icon: BarChart3, color: 'indigo'},
-                        {id: 'recordings', label: 'Dictados Inteligentes', icon: Mic, color: 'red'},
-                        {id: 'patients', label: 'Gestión de Pacientes', icon: Users, color: 'teal'},
-                        {id: 'reports', label: 'Reportes y Analíticas', icon: FileText, color: 'orange'},
-                        {id: 'schedule', label: 'Agenda de Consultas', icon: Calendar, color: 'violet'},
+                        {id: 'overview', label: 'Resumen General', icon: Grid, color: 'blue'},
+                        {id: 'recordings', label: 'Dictados Médicos', icon: Mic, color: 'red'},
+                        {id: 'patients', label: 'Gestión de Pacientes', icon: Users, color: 'emerald'},
+                        {id: 'reports', label: 'Reportes Clínicos', icon: FileText, color: 'amber'},
+                        {id: 'schedule', label: 'Agenda Médica', icon: Calendar, color: 'purple'},
                     ].map((item) => (
-                        <NavItem key={item.id} item={item} />
+                        <NavItem
+                            key={item.id}
+                            icon={item.icon}
+                            label={item.label}
+                            active={activeSection === item.id}
+                            onClick={() => setActiveSection(item.id)}
+                            color={item.color}
+                        />
                     ))}
                 </nav>
 
-                {/* User Section */}
-                <div className="p-5 border-t border-gray-200/40 bg-gradient-to-b from-white/60 to-gray-50/40">
-                    <div className="flex items-center space-x-3 p-3 bg-white/80 rounded-xl border border-gray-200/40 shadow-xl hover:shadow-2xl transition-all duration-300 group cursor-pointer backdrop-blur-md">
+                {/* Footer/User Section */}
+                <div className="p-4 border-t border-gray-100 bg-white/70">
+                    <motion.div
+                        className="flex items-center space-x-3 p-3 bg-white/90 rounded-2xl border border-gray-200/50 shadow-inner hover:shadow-lg transition-all duration-300 cursor-pointer"
+                        whileHover={{scale: 1.02}}
+                    >
                         <div className="relative">
-                            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-blue-400 rounded-full flex items-center justify-center shadow-lg group-hover:shadow-indigo-500/40 transition-all duration-300">
-                                <span className="text-white font-semibold text-sm">
-                                    {(user.full_name || user.email).charAt(0).toUpperCase()}
+                            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-cyan-400 rounded-full flex items-center justify-center shadow-md">
+                                <span className="text-white font-bold text-lg">
+                                    {user.initials}
                                 </span>
                             </div>
-                            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-teal-500 rounded-full border-2 border-white shadow-sm"></div>
+                            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white"></div>
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-bold text-gray-900 truncate">
-                                {user.full_name || user.email}
+                                {user.full_name}
                             </p>
                             <p className="text-xs text-gray-500 font-medium">
-                                {user.role || 'Médico Especialista'}
+                                {user.role}
                             </p>
                         </div>
-                        <Settings className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300"/>
-                    </div>
+                    </motion.div>
                 </div>
             </motion.div>
 
-            {/* 2. Main Content Area */}
+            {/* Main Content Area */}
             <div className="flex-1 flex flex-col min-w-0">
-                {/* Top Bar */}
-                <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-xl shadow-lg border-b border-gray-200/40">
-                    <div className="flex items-center justify-between px-8 py-4">
-                        <div>
-                            <h1 className="text-2xl font-extrabold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                {/* Top Bar - Minimalista y funcional */}
+                <header className="bg-white/90 backdrop-blur-2xl shadow-lg shadow-gray-100 border-b border-gray-100 sticky top-0 z-10">
+                    <div className="flex items-center justify-between px-8 py-5">
+                        <motion.div
+                            initial={{opacity: 0, x: -10}}
+                            animate={{opacity: 1, x: 0}}
+                            transition={{duration: 0.4}}
+                        >
+                            <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">
                                 {{
-                                    overview: 'Panel de Control (Dashboard)',
-                                    recordings: 'Sistema de Dictado Inteligente',
+                                    overview: 'Panel de Control Inteligente',
+                                    recordings: 'Sistema de Dictado Médico',
                                     patients: 'Gestión de Pacientes',
-                                    reports: 'Reportes y Analíticas Clínicas',
+                                    reports: 'Reportes y Documentación',
                                     schedule: 'Agenda Médica'
                                 }[activeSection]}
                             </h1>
-                            <div className="flex items-center space-x-4 text-sm text-gray-600 mt-1">
-                                <span className="font-semibold">{getGreeting()}, {user.full_name?.split(' ')[0] || 'Colega'}</span>
-                                <span className="text-gray-300">•</span>
-                                <span className="flex items-center space-x-1 bg-white/50 px-2 py-1 rounded-full text-indigo-600 font-medium backdrop-blur-sm shadow-sm">
-                                    <Clock className="w-3.5 h-3.5" />
+                            <div className="flex items-center space-x-4 text-sm text-gray-500 mt-1">
+                                <span className="font-semibold text-indigo-600">{getGreeting()}, {user.full_name?.split(' ')[0] || 'Colega'}</span>
+                                <span className="flex items-center space-x-1">
+                                    <Clock className="w-3 h-3 text-gray-500"/>
                                     <span>{currentTime.toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit'})}</span>
                                 </span>
-                                <span className="text-gray-300">•</span>
-                                <span className="text-teal-600 font-medium bg-teal-50/70 px-2 py-1 rounded-full flex items-center space-x-1 shadow-sm">
-                                    <Globe className="w-3.5 h-3.5"/>
-                                    <span className="text-xs">{getDailyMetrics()}</span>
+                                <span className="flex items-center space-x-1 text-emerald-600 font-medium bg-emerald-50/70 px-2 py-0.5 rounded-lg border border-emerald-100">
+                                    <ShieldCheck className="w-3 h-3"/>
+                                    {getDailyMetrics()}
                                 </span>
                             </div>
-                        </div>
+                        </motion.div>
 
-                        <div className="flex items-center space-x-3">
-                            {/* Search */}
-                            <div className="relative">
-                                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2"/>
-                                <input
-                                    type="text"
-                                    placeholder="Buscar documentos, pacientes..."
-                                    className="pl-10 pr-4 py-2.5 bg-white/90 border border-gray-300/70 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500/50 transition-all duration-300 w-64 backdrop-blur-sm text-sm shadow-sm"
-                                />
-                            </div>
-
+                        <div className="flex items-center space-x-4">
                             {/* Action Buttons */}
                             <div className="flex items-center space-x-2">
                                 <motion.button
-                                    whileHover={{scale: 1.05}}
+                                    whileHover={{scale: 1.1, backgroundColor: '#EFF6FF'}}
                                     whileTap={{scale: 0.95}}
-                                    className="p-3 text-gray-600 hover:text-indigo-600 transition-colors duration-300 hover:bg-indigo-50/80 rounded-xl relative backdrop-blur-sm border border-gray-200/50 shadow-sm"
+                                    className="p-3 text-gray-600 hover:text-cyan-600 transition-colors duration-300 bg-white/70 rounded-full border border-gray-200/50 shadow-md relative"
                                 >
                                     <Bell className="w-5 h-5"/>
-                                    <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white shadow-sm"></div>
+                                    <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></div>
                                 </motion.button>
 
+                                <motion.button
+                                    whileHover={{scale: 1.1, backgroundColor: '#EFF6FF'}}
+                                    whileTap={{scale: 0.95}}
+                                    className="p-3 text-gray-600 hover:text-cyan-600 transition-colors duration-300 bg-white/70 rounded-full border border-gray-200/50 shadow-md"
+                                >
+                                    <Settings className="w-5 h-5"/>
+                                </motion.button>
+
+                                {/* Botón de Logout (Diseño claro) */}
                                 <motion.button
                                     onClick={handleLogout}
                                     whileHover={{scale: 1.05}}
                                     whileTap={{scale: 0.95}}
-                                    className="flex items-center space-x-2 px-5 py-2.5 bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-800 hover:to-gray-900 text-white rounded-xl font-semibold transition-all duration-300 shadow-xl shadow-gray-500/25 backdrop-blur-sm text-sm"
+                                    className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white rounded-full font-semibold transition-all duration-300 shadow-lg shadow-red-300/50"
                                 >
                                     <LogOut className="w-4 h-4"/>
-                                    <span>Salir</span>
+                                    <span className="text-sm">Salir</span>
                                 </motion.button>
                             </div>
                         </div>
@@ -408,150 +285,168 @@ const Dashboard = () => {
                 </header>
 
                 {/* Main Content Area */}
-                <main className="flex-1 p-8 overflow-auto">
+                <main className="flex-1 p-8 overflow-y-auto">
                     {activeSection === 'overview' && (
                         <motion.div
-                            initial={{opacity: 0, y: 20}}
+                            initial={{opacity: 0, y: 30}}
                             animate={{opacity: 1, y: 0}}
-                            transition={{duration: 0.6}}
+                            transition={{duration: 0.7, ease: "easeOut"}}
                             className="space-y-8"
                         >
-                            {/* Welcome Section (Optimized for visual appeal) */}
-                            <div className="relative overflow-hidden rounded-3xl">
-                                <div className="bg-gradient-to-r from-indigo-600/95 via-indigo-700/95 to-teal-600/95 rounded-3xl p-8 lg:p-10 text-white shadow-2xl shadow-indigo-500/30 backdrop-blur-md">
-                                    {/* Abstract Background Design */}
-                                    <div className="absolute inset-0 opacity-[0.05] [mask-image:radial-gradient(ellipse_at_center,white,transparent)]">
-                                        <div className="absolute inset-0" style={{
-                                            backgroundImage: `radial-gradient(circle at 10% 90%, white 1px, transparent 0)`,
-                                            backgroundSize: '80px 80px'
-                                        }}></div>
-                                    </div>
+                            {/* Welcome Section - Banner */}
+                            <motion.div
+                                className="relative overflow-hidden rounded-3xl"
+                                initial={{y: 20}}
+                                animate={{y: 0}}
+                                transition={{type: "spring", stiffness: 100, delay: 0.1}}
+                            >
+                                <div className="p-8 bg-gradient-to-r from-indigo-600 to-cyan-600 text-white shadow-2xl shadow-indigo-500/50">
+                                    {/* Patrón de Fondo Abstracto */}
+                                    <div className="absolute inset-0 opacity-[0.05] bg-repeat" style={{backgroundImage: `radial-gradient(circle at 10% 10%, white 1px, transparent 0)`, backgroundSize: '30px 30px'}}></div>
 
                                     <div className="relative z-10 flex items-center justify-between">
-                                        <div className="flex-1">
-                                            <motion.div
-                                                initial={{opacity: 0, x: -20}}
-                                                animate={{opacity: 1, x: 0}}
-                                                transition={{duration: 0.6, delay: 0.2}}
-                                            >
-                                                <h2 className="text-4xl font-extrabold mb-3 bg-gradient-to-r from-white to-teal-200 bg-clip-text text-transparent">
-                                                    {getGreeting()}, Dr. {user.full_name?.split(' ')[0] || 'Colega'}
-                                                </h2>
-                                                <p className="text-indigo-100 text-lg mb-4 leading-relaxed max-w-xl">
-                                                    Plataforma operativa al <span className="font-bold text-teal-200">100%</span>. Su productividad es nuestra prioridad.
-                                                </p>
-                                                <div className="flex flex-wrap items-center gap-4 text-sm">
-                                                    <div className="flex items-center space-x-2 bg-white/20 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/30">
-                                                        <Zap className="w-4 h-4 text-teal-300" />
-                                                        <span className="text-teal-100 font-medium">Rendimiento Óptimo</span>
-                                                    </div>
-                                                    <div className="flex items-center space-x-2 bg-white/20 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/30">
-                                                        <Sparkles className="w-4 h-4 text-amber-300" />
-                                                        <span className="text-amber-100 font-medium">IA Asistida</span>
-                                                    </div>
+                                        <div>
+                                            <h2 className="text-3xl font-extrabold mb-2 text-white">
+                                                ¡{getGreeting()}, Dr. {user.full_name?.split(' ')[0] || 'Colega'}!
+                                            </h2>
+                                            <div className="flex items-center space-x-4 text-sm">
+                                                <div className="flex items-center space-x-2 bg-white/20 px-3 py-1.5 rounded-full border border-white/20">
+                                                    <Zap className="w-4 h-4 text-cyan-300"/>
+                                                    <span className="font-semibold text-cyan-200">Rendimiento Máximo</span>
                                                 </div>
-                                            </motion.div>
-                                        </div>
-                                        <motion.div
-                                            className="flex-shrink-0 hidden md:block"
-                                            animate={{
-                                                y: [0, -8, 0],
-                                            }}
-                                            transition={{
-                                                duration: 4,
-                                                repeat: Infinity,
-                                                ease: "easeInOut"
-                                            }}
-                                        >
-                                            <div className="w-28 h-28 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm border border-white/30 shadow-2xl">
-                                                <HeartPulse className="w-14 h-14 text-white animate-pulse" />
                                             </div>
-                                        </motion.div>
+                                        </div>
+                                        <div className="flex-shrink-0">
+                                            <HeartPulse className="w-16 h-16 text-white/50"/>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            </motion.div>
 
-                            {/* Stats Grid */}
+                            {/* Stats Grid - Soft UI Cards */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                {STATS_DATA.map((stat, index) => (
-                                    <StatCard key={stat.label} stat={stat} index={index} />
-                                ))}
+                                {stats.map((stat, index) => {
+                                    const {bg} = getGradientClasses(stat.color);
+                                    const TrendIcon = stat.trend === 'up' ? TrendingUp : TrendingDown;
+                                    const trendColor = stat.trend === 'up' ? 'text-emerald-500' : 'text-red-500';
+
+                                    return (
+                                        <motion.div
+                                            key={stat.label}
+                                            initial={{opacity: 0, y: 40, scale: 0.95}}
+                                            animate={{opacity: 1, y: 0, scale: 1}}
+                                            transition={{duration: 0.7, delay: index * 0.15}}
+                                            className="group cursor-pointer"
+                                            // Soft Shadow para efecto neumórfico
+                                            whileHover={{y: -5, scale: 1.03, boxShadow: '0 25px 50px rgba(0, 0, 0, 0.1), 0 10px 15px rgba(0, 0, 0, 0.05)'}}
+                                        >
+                                            {/* CAMBIO: Tarjetas blancas con blur (Light Glassmorphism) */}
+                                            <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-6 shadow-xl border border-gray-200/50 transition-all duration-500 relative overflow-hidden">
+                                                {/* Gradiente sutil para el fondo */}
+                                                <div className={`absolute inset-0 bg-gradient-to-br ${stat.lightGradient} opacity-30`}></div>
+
+                                                <div className="relative z-10">
+                                                    <div className="flex items-center justify-between mb-4">
+                                                        <div className={`p-3 rounded-xl bg-gradient-to-br ${bg} shadow-lg shadow-indigo-500/30 group-hover:scale-105 transition-all duration-300`}>
+                                                            <stat.icon className="w-6 h-6 text-white"/>
+                                                        </div>
+                                                        <div className={`flex items-center space-x-1 text-sm font-bold ${trendColor} bg-white/50 px-3 py-1 rounded-full border border-gray-100`}>
+                                                            <TrendIcon className="w-4 h-4"/>
+                                                            <span>{stat.change}</span>
+                                                        </div>
+                                                    </div>
+                                                    <h3 className="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 mb-1">
+                                                        {stat.value}
+                                                    </h3>
+                                                    <p className="text-gray-900 font-semibold mb-1 text-lg">{stat.label}</p>
+                                                    <p className="text-gray-600 text-sm">{stat.description}</p>
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    );
+                                })}
                             </div>
 
-                            {/* Quick Actions & Recent Activity */}
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-4">
+                            {/* Quick Actions & Recent Activity (Diseño Asimétrico) */}
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                                 {/* Quick Actions */}
                                 <div className="lg:col-span-2 space-y-6">
-                                    <div className="flex items-center justify-between">
-                                        <h3 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                                            Acciones Clave
-                                        </h3>
-                                        <motion.div
-                                            className="flex items-center space-x-2 text-sm text-indigo-600 bg-indigo-50/70 px-3 py-1.5 rounded-full backdrop-blur-sm font-semibold shadow-sm border border-indigo-200/50"
-                                            whileHover={{scale: 1.05}}
-                                        >
-                                            <Zap className="w-4 h-4" />
-                                            <span>Productividad</span>
-                                        </motion.div>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        {QUICK_ACTIONS.map((action, index) => (
-                                            <QuickActionButton key={action.title} action={action} index={index} />
-                                        ))}
+                                    <h3 className="text-2xl font-bold text-gray-900">Acciones Médicas Esenciales</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                        {quickActions.map((action, index) => {
+                                            const {bg, hoverBg, text} = getGradientClasses(action.color);
+                                            return (
+                                                <motion.button
+                                                    key={action.title}
+                                                    onClick={action.action}
+                                                    whileHover={{scale: 1.05, y: -5}}
+                                                    whileTap={{scale: 0.98}}
+                                                    // CAMBIO: Tarjetas claras
+                                                    className={`p-6 bg-white/80 backdrop-blur-xl rounded-3xl text-left group transition-all duration-500 shadow-xl border border-gray-200/50 hover:border-transparent relative overflow-hidden`}
+                                                    initial={{opacity: 0, x: -20}}
+                                                    animate={{opacity: 1, x: 0}}
+                                                    transition={{duration: 0.6, delay: index * 0.15}}
+                                                >
+                                                    {/* Gradiente de fondo en hover */}
+                                                    <div className={`absolute inset-0 bg-gradient-to-br ${hoverBg} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}></div>
+
+                                                    <div className="relative z-10">
+                                                        <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${bg} flex items-center justify-center mb-4 shadow-xl shadow-indigo-500/30 group-hover:scale-105 transition-all duration-300`}>
+                                                            <action.icon className="w-7 h-7 text-white"/>
+                                                        </div>
+                                                        <h4 className={`font-extrabold text-xl mb-2 ${text} transition-colors text-gray-900`}>
+                                                            {action.title}
+                                                        </h4>
+                                                        <p className="text-gray-600 text-sm leading-relaxed">
+                                                            {action.description}
+                                                        </p>
+                                                    </div>
+                                                </motion.button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
 
                                 {/* Recent Activity */}
                                 <div>
-                                    <div className="flex items-center justify-between mb-6">
-                                        <h3 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                                            Línea de Tiempo
-                                        </h3>
-                                        <motion.div
-                                            className="flex items-center space-x-2 text-sm text-teal-600 bg-teal-50/70 px-3 py-1.5 rounded-full backdrop-blur-sm font-semibold shadow-sm border border-teal-200/50"
-                                            whileHover={{scale: 1.05}}
-                                        >
-                                            <ActivityIcon className="w-4 h-4" />
-                                            <span>Actividad en vivo</span>
-                                        </motion.div>
-                                    </div>
-                                    <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-gray-200/50 p-6 shadow-2xl">
-                                        <div className="space-y-4">
-                                            {recentActivities.map((activity, index) => {
-                                                const Icon = activity.icon;
-                                                const statusColor = activity.status === 'success' ? 'teal' :
-                                                    activity.status === 'info' ? 'indigo' :
-                                                        activity.status === 'warning' ? 'orange' : 'red';
-                                                return (
+                                    <h3 className="text-2xl font-bold text-gray-900 mb-6">Actividad Reciente</h3>
+                                    {/* CAMBIO: Tarjetas claras */}
+                                    <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-gray-200/50 p-6 shadow-xl space-y-2">
+                                        {recentActivities.map((activity, index) => {
+                                            const statusColor = activity.status === 'success' ? 'emerald' : activity.status === 'info' ? 'blue' : 'amber';
+                                            return (
+                                                <motion.div
+                                                    key={index}
+                                                    initial={{opacity: 0, x: 10}}
+                                                    animate={{opacity: 1, x: 0}}
+                                                    transition={{duration: 0.5, delay: index * 0.1}}
+                                                    className="flex items-start space-x-4 p-4 rounded-2xl hover:bg-gray-50/70 transition-all duration-300 cursor-pointer"
+                                                    whileHover={{x: 5, scale: 1.01}}
+                                                >
+                                                    <div className={`w-2 h-2 rounded-full mt-2 bg-${statusColor}-500 shadow-md shadow-${statusColor}-500/50`}/>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-gray-900 text-sm font-semibold leading-relaxed">
+                                                            {activity.action}
+                                                        </p>
+                                                        <p className="text-gray-500 text-xs mt-1">
+                                                            {activity.time}
+                                                        </p>
+                                                    </div>
                                                     <motion.div
-                                                        key={index}
-                                                        initial={{opacity: 0, x: -10}}
-                                                        animate={{opacity: 1, x: 0}}
-                                                        transition={{duration: 0.4, delay: index * 0.1}}
-                                                        className="flex items-start space-x-4 p-4 rounded-xl hover:bg-white/90 transition-all duration-300 group cursor-pointer backdrop-blur-sm border border-transparent hover:border-gray-100"
-                                                        whileHover={{x: 3, scale: 1.01}}
+                                                        className={`text-${statusColor}-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300`}
+                                                        whileHover={{scale: 1.2}}
                                                     >
-                                                        <div className={`p-2 rounded-full bg-gradient-to-br from-${statusColor}-500 to-${statusColor}-400 shadow-lg shadow-${statusColor}-500/20 flex-shrink-0`}>
-                                                            <Icon className="w-4 h-4 text-white"/>
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-gray-900 text-sm font-semibold leading-snug group-hover:text-indigo-600 transition-colors">
-                                                                {activity.action}
-                                                            </p>
-                                                            <p className="text-gray-500 text-xs mt-1">
-                                                                {activity.time}
-                                                            </p>
-                                                        </div>
+                                                        <ActivityIcon className="w-4 h-4"/>
                                                     </motion.div>
-                                                );
-                                            })}
-                                        </div>
+                                                </motion.div>
+                                            );
+                                        })}
                                         <motion.button
-                                            className="w-full mt-6 py-3 text-gray-600 hover:text-indigo-600 font-semibold rounded-xl hover:bg-indigo-50/50 transition-all duration-300 backdrop-blur-sm border border-gray-200/50 hover:border-indigo-200/50 shadow-sm"
-                                            whileHover={{scale: 1.01, y: -1}}
+                                            className="w-full mt-4 py-3 text-indigo-600 font-bold rounded-2xl bg-indigo-50/50 hover:bg-indigo-100 transition-all duration-300 border border-indigo-200/50"
+                                            whileHover={{scale: 1.02}}
                                             whileTap={{scale: 0.98}}
                                         >
-                                            Ver Historial Detallado
+                                            Ver historial completo
                                         </motion.button>
                                     </div>
                                 </div>
@@ -564,36 +459,19 @@ const Dashboard = () => {
                             initial={{opacity: 0, y: 20}}
                             animate={{opacity: 1, y: 0}}
                             transition={{duration: 0.6}}
-                            className="bg-white/80 backdrop-blur-xl rounded-2xl border border-gray-200/50 p-8 shadow-2xl"
+                            // CAMBIO: Fondo claro
+                            className="p-6 bg-white/70 backdrop-blur-xl rounded-3xl shadow-2xl border border-gray-200/50"
                         >
-                            <h2 className="text-3xl font-bold mb-6 text-gray-800">Módulo de Dictado Médico AI</h2>
+                            <h2 className="text-2xl font-bold text-gray-900 mb-6">🎙️ Sistema de Grabación y Transcripción Inteligente</h2>
+                            {/* Componente AudioRecorder asumiendo un estilo profesional */}
                             <AudioRecorder/>
-                            <p className="mt-6 text-gray-600 text-sm">
-                                Utilice el micrófono para iniciar una transcripción médica en tiempo real, asistida por inteligencia artificial.
-                            </p>
+                            <div className="mt-8 p-4 bg-blue-50/50 rounded-xl flex items-center space-x-3 border border-blue-200/50">
+                                <Brain className="w-5 h-5 text-indigo-600"/>
+                                <p className="text-sm text-gray-700 font-medium">Las grabaciones se procesan con **Inteligencia Artificial** para una transcripción y estructuración automática de informes clínicos.</p>
+                            </div>
                         </motion.div>
                     )}
 
-                    {activeSection === 'patients' && (
-                        <motion.div
-                            initial={{opacity: 0, y: 20}}
-                            animate={{opacity: 1, y: 0}}
-                            transition={{duration: 0.6}}
-                            className="bg-white/80 backdrop-blur-xl rounded-2xl border border-gray-200/50 p-8 shadow-2xl text-center"
-                        >
-                            <Users className="w-12 h-12 text-indigo-500 mx-auto mb-4"/>
-                            <h2 className="text-3xl font-bold mb-4 text-gray-800">Gestión Avanzada de Pacientes</h2>
-                            <p className="text-gray-600 max-w-lg mx-auto">
-                                Esta sección incluirá herramientas CRM para la gestión de expedientes, historial clínico digital, y seguimiento de tratamientos. (En desarrollo: Componente de Tabla/Filtros).
-                            </p>
-                            <motion.button
-                                className="mt-6 px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors"
-                                whileHover={{scale: 1.05}}
-                            >
-                                Iniciar Búsqueda de Expediente
-                            </motion.button>
-                        </motion.div>
-                    )}
                 </main>
             </div>
         </div>
