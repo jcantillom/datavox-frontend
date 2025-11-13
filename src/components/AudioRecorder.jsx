@@ -1,4 +1,4 @@
-// src/components/AudioRecorder.jsx - VERSIÓN MEJORADA
+// src/components/AudioRecorder.jsx - VERSIÓN CORREGIDA
 import React, {useState, useRef, useEffect} from 'react';
 import {motion} from 'framer-motion';
 import {
@@ -13,20 +13,32 @@ import {
     FileText,
     Copy,
     Edit3,
-    Download
+    Download,
+    Stethoscope,
+    Pill,
+    User,
+    Calendar,
+    Clock,
+    FileDown,
+    Scan // Usamos Scan en lugar de XRay
 } from 'lucide-react';
 import {storageService} from '../services/storage';
 import {recordingService} from '../services/recordings';
 import {transcriptionService} from '../services/transcription';
+import {clinicalService} from '../services/clinical';
+
 
 const AudioRecorder = () => {
-    const [recordingState, setRecordingState] = useState('idle'); // 'idle', 'recording', 'paused', 'recorded', 'processing', 'completed'
+    const [recordingState, setRecordingState] = useState('idle');
     const [recordedAudio, setRecordedAudio] = useState(null);
     const [audioBlob, setAudioBlob] = useState(null);
     const [recordingTime, setRecordingTime] = useState(0);
     const [transcript, setTranscript] = useState('');
     const [uploadStatus, setUploadStatus] = useState('');
     const [statusMessage, setStatusMessage] = useState('');
+    const [documentType, setDocumentType] = useState('clinical_history');
+    const [documentMetadata, setDocumentMetadata] = useState({});
+    const [generatedDocument, setGeneratedDocument] = useState(null);
 
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
@@ -34,21 +46,65 @@ const AudioRecorder = () => {
     const audioRef = useRef(null);
     const streamRef = useRef(null);
 
-    // Configurar grabador de audio
+    // Document types para uso médico profesional
+    const documentTypes = [
+        {
+            value: 'clinical_history',
+            label: 'Historia Clínica',
+            description: 'Documento completo de historia clínica',
+            icon: Stethoscope
+        },
+        {
+            value: 'radiology_report',
+            label: 'Informe Radiológico',
+            description: 'Reporte de estudios de imagen',
+            icon: Scan // Cambiado de XRay a Scan
+        },
+        {
+            value: 'medical_prescription',
+            label: 'Formula Médica',
+            description: 'Prescripción de medicamentos',
+            icon: Pill
+        },
+        {
+            value: 'medical_certificate',
+            label: 'Certificado Médico',
+            description: 'Certificado de atención médica',
+            icon: FileText
+        },
+        {
+            value: 'incapacity',
+            label: 'Incapacidad',
+            description: 'Documento de incapacidad laboral',
+            icon: User
+        }
+    ];
+
+    // Obtener icono según tipo de documento - FUNCIÓN CORREGIDA
+    const getDocumentIcon = (type) => {
+        const docType = documentTypes.find(doc => doc.value === type);
+        return docType ? docType.icon : FileText;
+    };
+
+    // Configurar grabador de audio profesional
     const setupRecorder = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     echoCancellation: true,
                     noiseSuppression: true,
-                    sampleRate: 44100
+                    autoGainControl: true,
+                    channelCount: 1,
+                    sampleRate: 44100,
+                    sampleSize: 16
                 }
             });
 
             streamRef.current = stream;
 
             const mediaRecorder = new MediaRecorder(stream, {
-                mimeType: 'audio/webm;codecs=opus'
+                mimeType: 'audio/webm;codecs=opus',
+                audioBitsPerSecond: 128000
             });
 
             mediaRecorderRef.current = mediaRecorder;
@@ -61,16 +117,29 @@ const AudioRecorder = () => {
             };
 
             mediaRecorder.onstop = () => {
-                const blob = new Blob(audioChunksRef.current, {type: 'audio/webm'});
+                const blob = new Blob(audioChunksRef.current, {
+                    type: 'audio/webm;codecs=opus'
+                });
                 const audioUrl = URL.createObjectURL(blob);
                 setAudioBlob(blob);
                 setRecordedAudio(audioUrl);
                 setRecordingState('recorded');
             };
 
+            mediaRecorder.onerror = (event) => {
+                console.error('MediaRecorder error:', event.error);
+                showStatus('error', 'Error en la grabación de audio');
+            };
+
         } catch (error) {
             console.error('Error accessing microphone:', error);
-            showStatus('error', 'No se pudo acceder al micrófono. Por favor permita el acceso.');
+            if (error.name === 'NotAllowedError') {
+                showStatus('error', 'Permiso de micrófono denegado. Por favor permita el acceso al micrófono.');
+            } else if (error.name === 'NotFoundError') {
+                showStatus('error', 'No se encontró ningún dispositivo de micrófono.');
+            } else {
+                showStatus('error', `Error al acceder al micrófono: ${error.message}`);
+            }
         }
     };
 
@@ -79,16 +148,20 @@ const AudioRecorder = () => {
         setUploadStatus(status);
         setStatusMessage(message);
 
-        setTimeout(() => {
-            setUploadStatus('');
-            setStatusMessage('');
-        }, 5000);
+        if (status === 'success' || status === 'error') {
+            setTimeout(() => {
+                setUploadStatus('');
+                setStatusMessage('');
+            }, 5000);
+        }
     };
 
     // Limpiar recursos
     const cleanupResources = () => {
         if (streamRef.current) {
-            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current.getTracks().forEach(track => {
+                track.stop();
+            });
             streamRef.current = null;
         }
 
@@ -115,33 +188,34 @@ const AudioRecorder = () => {
 
         if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'inactive') {
             audioChunksRef.current = [];
-            mediaRecorderRef.current.start(1000);
+            mediaRecorderRef.current.start(1000); // Capturar datos cada segundo
             setRecordingState('recording');
             setRecordingTime(0);
 
-            // Timer que respeta el estado de pausa
             timerRef.current = setInterval(() => {
                 setRecordingTime(prev => prev + 1);
             }, 1000);
+
+            showStatus('info', 'Grabando dictado médico...');
         }
     };
 
-    // Pausar/reanudar grabación - CORREGIDO
+    // Pausar/reanudar grabación
     const togglePause = () => {
         if (mediaRecorderRef.current) {
             if (recordingState === 'paused') {
                 mediaRecorderRef.current.resume();
                 setRecordingState('recording');
+                showStatus('info', 'Grabación reanudada');
 
-                // Reanudar timer
                 timerRef.current = setInterval(() => {
                     setRecordingTime(prev => prev + 1);
                 }, 1000);
             } else {
                 mediaRecorderRef.current.pause();
                 setRecordingState('paused');
+                showStatus('warning', 'Grabación pausada');
 
-                // Detener timer completamente
                 if (timerRef.current) {
                     clearInterval(timerRef.current);
                     timerRef.current = null;
@@ -155,6 +229,7 @@ const AudioRecorder = () => {
         if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
             mediaRecorderRef.current.stop();
             setRecordingState('recorded');
+            showStatus('success', 'Dictado grabado correctamente');
 
             if (timerRef.current) {
                 clearInterval(timerRef.current);
@@ -178,6 +253,7 @@ const AudioRecorder = () => {
         setUploadStatus('');
         setStatusMessage('');
         setRecordingState('idle');
+        setGeneratedDocument(null);
 
         cleanupResources();
 
@@ -195,25 +271,28 @@ const AudioRecorder = () => {
 
         setRecordingState('processing');
         setUploadStatus('processing');
-        setStatusMessage('Iniciando procesamiento...');
+        setStatusMessage('Iniciando procesamiento médico...');
 
         try {
             // 1. Subir audio a S3
             setStatusMessage('Subiendo audio a almacenamiento seguro...');
             const presignResponse = await storageService.presignPut({
-                filename: `recording-${Date.now()}.webm`,
+                filename: `medical-dictation-${Date.now()}.webm`,
                 content_type: 'audio/webm',
                 size_bytes: audioBlob.size,
                 folder: 'medical-recordings'
             });
 
+            // Upload directo a S3
             const uploadResponse = await fetch(presignResponse.upload_url, {
                 method: 'PUT',
                 headers: presignResponse.required_headers,
                 body: audioBlob
             });
 
-            if (!uploadResponse.ok) throw new Error('Error subiendo audio');
+            if (!uploadResponse.ok) {
+                throw new Error('Error subiendo audio al almacenamiento seguro');
+            }
 
             // 2. Registrar en base de datos
             setStatusMessage('Registrando en sistema médico...');
@@ -228,22 +307,93 @@ const AudioRecorder = () => {
             const recording = await recordingService.createRecording(recordingData);
 
             // 3. Iniciar transcripción
-            setStatusMessage('Procesando con IA médica...');
+            setStatusMessage('Procesando con IA médica especializada...');
             await transcriptionService.startTranscription(recording.id);
 
-            // 4. Polling para resultado
-            setStatusMessage('Generando transcripción...');
+            // 4. Polling para resultado con mejor manejo
+            setStatusMessage('Generando transcripción médica...');
             const result = await transcriptionService.pollTranscriptionStatus(recording.id);
 
-            setTranscript(result.transcript_text);
-            setRecordingState('completed');
-            showStatus('success', 'Transcripción médica completada exitosamente');
+            if (result.transcript_text) {
+                setTranscript(result.transcript_text);
+                setRecordingState('completed');
+                showStatus('success', 'Transcripción médica completada exitosamente');
+
+                // Auto-generar documento basado en el tipo seleccionado
+                await generateMedicalDocument(result.transcript_text);
+            } else {
+                throw new Error('No se pudo obtener la transcripción');
+            }
 
         } catch (error) {
             console.error('Upload/transcription error:', error);
             setRecordingState('recorded');
-            showStatus('error', `Error en procesamiento: ${error.message}`);
+            showStatus('error', `Error en procesamiento médico: ${error.message}`);
         }
+    };
+
+    // Generar documento médico
+    const generateMedicalDocument = async (transcriptText) => {
+        try {
+            setStatusMessage('Generando documento médico...');
+
+            const metadata = {
+                ...documentMetadata,
+                generated_at: new Date().toISOString(),
+                recording_duration: recordingTime
+            };
+
+            const result = await clinicalService.generateMedicalDocument(
+                documentType,
+                transcriptText,
+                metadata
+            );
+
+            if (result.success) {
+                setGeneratedDocument(result);
+                showStatus('success', 'Documento médico generado exitosamente');
+            } else {
+                throw new Error(result.error || 'Error generando documento');
+            }
+        } catch (error) {
+            console.error('Error generating document:', error);
+            showStatus('error', `Error generando documento: ${error.message}`);
+        }
+    };
+
+    // Acciones para documentos
+    const handleCopyTranscript = () => {
+        navigator.clipboard.writeText(transcript);
+        showStatus('success', 'Texto copiado al portapapeles');
+    };
+
+    const handleCopyDocument = () => {
+        if (generatedDocument) {
+            navigator.clipboard.writeText(generatedDocument.content);
+            showStatus('success', 'Documento copiado al portapapeles');
+        }
+    };
+
+    const handleDownloadDocument = () => {
+        if (generatedDocument) {
+            const blob = new Blob([generatedDocument.content], {type: 'text/plain'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `documento-medico-${Date.now()}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showStatus('success', 'Documento descargado');
+        }
+    };
+
+    const handleMetadataChange = (field, value) => {
+        setDocumentMetadata(prev => ({
+            ...prev,
+            [field]: value
+        }));
     };
 
     // Formatear tiempo
@@ -251,17 +401,6 @@ const AudioRecorder = () => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    };
-
-    // Acciones para audio procesado
-    const handleCopyTranscript = () => {
-        navigator.clipboard.writeText(transcript);
-        showStatus('success', 'Texto copiado al portapapeles');
-    };
-
-    const handleExportDocument = () => {
-        // Lógica para exportar a formato médico
-        showStatus('success', 'Documento médico exportado');
     };
 
     useEffect(() => {
@@ -273,7 +412,7 @@ const AudioRecorder = () => {
         <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
             <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-semibold text-gray-900">
-                    Grabación de Dictado Médico
+                    Sistema de Dictado Médico Profesional
                 </h2>
                 <div className={`px-3 py-1 rounded-full text-xs font-medium ${
                     recordingState === 'recording' ? 'bg-red-100 text-red-700' :
@@ -283,10 +422,10 @@ const AudioRecorder = () => {
                                     'bg-gray-100 text-gray-700'
                 }`}>
                     {{
-                        'idle': 'Listo',
-                        'recording': 'Grabando',
-                        'paused': 'Pausado',
-                        'recorded': 'Grabado',
+                        'idle': 'Listo para Dictar',
+                        'recording': 'Grabando Dictado',
+                        'paused': 'Grabación Pausada',
+                        'recorded': 'Dictado Grabado',
                         'processing': 'Procesando',
                         'completed': 'Completado'
                     }[recordingState]}
@@ -303,7 +442,9 @@ const AudioRecorder = () => {
                             ? 'bg-green-50 border-green-200 text-green-800'
                             : uploadStatus === 'error'
                                 ? 'bg-red-50 border-red-200 text-red-800'
-                                : 'bg-blue-50 border-blue-200 text-blue-800'
+                                : uploadStatus === 'processing'
+                                    ? 'bg-blue-50 border-blue-200 text-blue-800'
+                                    : 'bg-yellow-50 border-yellow-200 text-yellow-800'
                     }`}
                 >
                     <div className="flex items-center space-x-3">
@@ -313,7 +454,89 @@ const AudioRecorder = () => {
                             <div
                                 className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"/>
                         )}
+                        {uploadStatus === 'info' && <Clock className="w-5 h-5 text-blue-500"/>}
+                        {uploadStatus === 'warning' && <AlertCircle className="w-5 h-5 text-yellow-500"/>}
                         <p className="font-medium">{statusMessage}</p>
+                    </div>
+                </motion.div>
+            )}
+
+            {/* Selector de Tipo de Documento */}
+            {recordingState === 'idle' && (
+                <motion.div
+                    initial={{opacity: 0, y: 20}}
+                    animate={{opacity: 1, y: 0}}
+                    className="mb-6"
+                >
+                    <label className="block text-sm font-semibold text-gray-700 mb-3">
+                        Tipo de Documento Médico
+                    </label>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {documentTypes.map((docType) => {
+                            const IconComponent = docType.icon;
+                            return (
+                                <motion.button
+                                    key={docType.value}
+                                    onClick={() => setDocumentType(docType.value)}
+                                    className={`p-4 border-2 rounded-xl text-left transition-all duration-200 ${
+                                        documentType === docType.value
+                                            ? 'border-blue-500 bg-blue-50'
+                                            : 'border-gray-200 hover:border-gray-300'
+                                    }`}
+                                    whileHover={{scale: 1.02}}
+                                    whileTap={{scale: 0.98}}
+                                >
+                                    <IconComponent className={`w-6 h-6 mb-2 ${
+                                        documentType === docType.value ? 'text-blue-600' : 'text-gray-400'
+                                    }`}/>
+                                    <div className="text-sm font-medium text-gray-900">
+                                        {docType.label}
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1">
+                                        {docType.description}
+                                    </div>
+                                </motion.button>
+                            );
+                        })}
+                    </div>
+                </motion.div>
+            )}
+
+            {/* Metadata del Documento */}
+            {recordingState === 'idle' && (
+                <motion.div
+                    initial={{opacity: 0, y: 20}}
+                    animate={{opacity: 1, y: 0}}
+                    className="mb-6"
+                >
+                    <label className="block text-sm font-semibold text-gray-700 mb-3">
+                        Información del Documento
+                    </label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                                Nombre del Médico
+                            </label>
+                            <input
+                                type="text"
+                                value={documentMetadata.doctor_name || ''}
+                                onChange={(e) => handleMetadataChange('doctor_name', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                placeholder="Dr. Juan Pérez"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                                Licencia Médica
+                            </label>
+                            <input
+                                type="text"
+                                value={documentMetadata.doctor_license || ''}
+                                onChange={(e) => handleMetadataChange('doctor_license', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                placeholder="LM-12345"
+                            />
+                        </div>
                     </div>
                 </motion.div>
             )}
@@ -330,14 +553,14 @@ const AudioRecorder = () => {
                                         recordingState === 'paused' ? 'bg-yellow-500' : 'bg-red-500'
                                     } animate-pulse`}/>
                                     <span>
-                                        {recordingState === 'paused' ? 'GRABACIÓN PAUSADA' : 'GRABANDO DICTADO MÉDICO'}
+                                        {recordingState === 'paused' ? 'DICTADO PAUSADO' : 'GRABANDO DICTADO MÉDICO'}
                                     </span>
                                 </div>
 
-                                {/* Onda de sonido solo cuando está grabando activamente */}
+                                {/* Onda de sonido animada */}
                                 {recordingState === 'recording' && (
                                     <div className="flex justify-center space-x-1 mb-4">
-                                        {[1, 2, 3, 4, 3, 2].map((height, index) => (
+                                        {[1, 2, 3, 4, 3, 2, 3, 4, 5, 4, 3, 2].map((height, index) => (
                                             <motion.div
                                                 key={index}
                                                 className="w-1 bg-blue-500 rounded-full"
@@ -355,7 +578,7 @@ const AudioRecorder = () => {
                                     </div>
                                 )}
 
-                                {/* Tiempo */}
+                                {/* Tiempo de grabación */}
                                 <div className="text-2xl font-mono text-gray-700 mb-2">
                                     {formatTime(recordingTime)}
                                 </div>
@@ -401,7 +624,7 @@ const AudioRecorder = () => {
                                 </>
                             ) : (recordingState === 'recorded' || recordingState === 'processing') && (
                                 <div className="space-y-4 w-full">
-                                    {/* Reproductor */}
+                                    {/* Reproductor de Audio */}
                                     <div className="flex items-center space-x-4">
                                         <audio
                                             ref={audioRef}
@@ -418,10 +641,16 @@ const AudioRecorder = () => {
                                         </motion.button>
                                     </div>
 
-                                    {/* Información */}
+                                    {/* Información del Audio */}
                                     <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                                        <div>Duración: {formatTime(recordingTime)}</div>
-                                        <div>Tamaño: {(audioBlob?.size / 1024 / 1024).toFixed(2)} MB</div>
+                                        <div className="flex items-center space-x-2">
+                                            <Clock className="w-4 h-4"/>
+                                            <span>Duración: {formatTime(recordingTime)}</span>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <FileDown className="w-4 h-4"/>
+                                            <span>Tamaño: {(audioBlob?.size / 1024 / 1024).toFixed(2)} MB</span>
+                                        </div>
                                     </div>
 
                                     {/* Botón de Procesamiento */}
@@ -436,7 +665,7 @@ const AudioRecorder = () => {
                                             <>
                                                 <div
                                                     className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"/>
-                                                <span>Procesando Dictado...</span>
+                                                <span>Procesando Dictado Médico...</span>
                                             </>
                                         ) : (
                                             <>
@@ -450,25 +679,27 @@ const AudioRecorder = () => {
                         </div>
                     </div>
                 ) : (
-                    // Estado COMPLETADO - Transcripción lista
+                    // Estado COMPLETADO - Transcripción y Documento listos
                     <motion.div
                         initial={{opacity: 0, y: 20}}
                         animate={{opacity: 1, y: 0}}
                         className="space-y-6"
                     >
-                        {/* Header de Transcripción Completada */}
+                        {/* Header de Proceso Completado */}
                         <div
                             className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
                             <div className="flex items-center space-x-3">
                                 <CheckCircle className="w-6 h-6 text-green-500"/>
                                 <div>
-                                    <h3 className="font-semibold text-green-900">Dictado Procesado Exitosamente</h3>
-                                    <p className="text-green-700 text-sm">Transcripción médica lista para usar</p>
+                                    <h3 className="font-semibold text-green-900">Proceso Médico Completado</h3>
+                                    <p className="text-green-700 text-sm">
+                                        Dictado transcrito y documento médico generado exitosamente
+                                    </p>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Audio y Info */}
+                        {/* Audio y Información */}
                         <div className="flex items-center space-x-4">
                             <audio
                                 ref={audioRef}
@@ -502,18 +733,64 @@ const AudioRecorder = () => {
                                 <p className="text-blue-800 whitespace-pre-wrap bg-white p-4 rounded-lg border border-blue-100 min-h-[120px]">
                                     {transcript}
                                 </p>
+                                <div className="flex justify-end mt-3">
+                                    <motion.button
+                                        onClick={handleCopyTranscript}
+                                        className="flex items-center space-x-2 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                        whileHover={{scale: 1.05}}
+                                    >
+                                        <Copy className="w-4 h-4"/>
+                                        <span>Copiar Texto</span>
+                                    </motion.button>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Acciones para Transcripción Completada */}
+                        {/* Documento Generado */}
+                        {generatedDocument && (
+                            <div className="bg-green-50 rounded-xl border border-green-200">
+                                <div className="p-4 border-b border-green-200">
+                                    <h3 className="font-semibold text-green-900 flex items-center">
+                                        {React.createElement(getDocumentIcon(documentType), {className: "w-4 h-4 mr-2"})}
+                                        Documento Médico Generado:
+                                    </h3>
+                                </div>
+                                <div className="p-4">
+                                    <pre
+                                        className="text-green-800 whitespace-pre-wrap bg-white p-4 rounded-lg border border-green-100 min-h-[200px] max-h-96 overflow-y-auto text-sm">
+                                        {generatedDocument.content}
+                                    </pre>
+                                    <div className="flex justify-end space-x-3 mt-3">
+                                        <motion.button
+                                            onClick={handleCopyDocument}
+                                            className="flex items-center space-x-2 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                            whileHover={{scale: 1.05}}
+                                        >
+                                            <Copy className="w-4 h-4"/>
+                                            <span>Copiar</span>
+                                        </motion.button>
+                                        <motion.button
+                                            onClick={handleDownloadDocument}
+                                            className="flex items-center space-x-2 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                            whileHover={{scale: 1.05}}
+                                        >
+                                            <Download className="w-4 h-4"/>
+                                            <span>Descargar</span>
+                                        </motion.button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Acciones Adicionales */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             <motion.button
-                                onClick={handleCopyTranscript}
-                                className="flex items-center justify-center space-x-2 py-3 bg-white border border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+                                onClick={clearRecording}
+                                className="flex items-center justify-center space-x-2 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                                 whileHover={{scale: 1.05}}
                             >
-                                <Copy className="w-4 h-4"/>
-                                <span>Copiar Texto</span>
+                                <Mic className="w-4 h-4"/>
+                                <span>Nuevo Dictado</span>
                             </motion.button>
 
                             <motion.button
@@ -521,16 +798,15 @@ const AudioRecorder = () => {
                                 whileHover={{scale: 1.05}}
                             >
                                 <Edit3 className="w-4 h-4"/>
-                                <span>Llenar Formulario</span>
+                                <span>Editar Documento</span>
                             </motion.button>
 
                             <motion.button
-                                onClick={handleExportDocument}
-                                className="flex items-center justify-center space-x-2 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                className="flex items-center justify-center space-x-2 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
                                 whileHover={{scale: 1.05}}
                             >
-                                <Download className="w-4 h-4"/>
-                                <span>Exportar PDF</span>
+                                <FileDown className="w-4 h-4"/>
+                                <span>Exportar a HIS</span>
                             </motion.button>
                         </div>
                     </motion.div>

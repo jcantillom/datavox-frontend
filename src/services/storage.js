@@ -1,5 +1,4 @@
-// src/services/storage.js
-import {apiService} from './api';
+import { apiService } from './api';
 
 export const storageService = {
     async presignPut(data) {
