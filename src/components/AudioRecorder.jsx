@@ -5,7 +5,7 @@ import {
     AlertCircle, FileText, Copy, Edit3, Download, Stethoscope,
     Pill, User, Calendar, Clock, FileDown, Radiation, X,
     Shield, Brain, Database, Cloud, Sparkles, FileCheck,
-    RotateCcw, FileSignature, ClipboardList
+    RotateCcw, FileSignature, ClipboardList, Save
 } from 'lucide-react';
 import {storageService} from '../services/storage';
 import {recordingService} from '../services/recordings';
@@ -32,7 +32,7 @@ const DOCUMENT_TYPES_CONFIG = {
         icon: Radiation,
         color: 'amber',
         gradient: 'from-amber-500 to-orange-500',
-        lightGradient: 'from-amber-50 to-orange-50',
+        lightGradient: 'from-amber-50 to-amber-50',
         borderGradient: 'from-amber-200 to-orange-200',
         textGradient: 'from-amber-600 to-orange-600',
         shadow: 'shadow-amber-500/25'
@@ -91,6 +91,8 @@ const AudioRecorder = () => {
     const [currentStep, setCurrentStep] = useState(null);
     const [showFinalSuccess, setShowFinalSuccess] = useState(false);
     const [showNewDictationOptions, setShowNewDictationOptions] = useState(false);
+    const [isEditingDocument, setIsEditingDocument] = useState(false);
+    const [editedDocumentContent, setEditedDocumentContent] = useState('');
 
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
@@ -100,7 +102,6 @@ const AudioRecorder = () => {
 
     const currentDocConfig = DOCUMENT_TYPES_CONFIG[documentType];
 
-    // Definir pasos del procesamiento con gradientes
     const processingStepsConfig = {
         uploading: {
             icon: Cloud,
@@ -352,6 +353,8 @@ const AudioRecorder = () => {
         setCurrentStep(null);
         setShowFinalSuccess(false);
         setShowNewDictationOptions(false);
+        setIsEditingDocument(false);
+        setEditedDocumentContent('');
 
         cleanupResources();
 
@@ -374,14 +377,35 @@ const AudioRecorder = () => {
 
     const handleNewDictationChoice = (choice) => {
         if (choice === 'sameType') {
-            // Mantener mismo tipo de documento
             clearRecording();
         } else if (choice === 'differentType') {
-            // Cambiar tipo de documento
-            setDocumentType('clinical_history'); // Reset to default or let user choose
+            setDocumentType('clinical_history');
             clearRecording();
         }
         setShowNewDictationOptions(false);
+    };
+
+    const handleEditDocument = () => {
+        if (generatedDocument) {
+            setEditedDocumentContent(generatedDocument.content);
+            setIsEditingDocument(true);
+        }
+    };
+
+    const handleSaveEditedDocument = () => {
+        if (generatedDocument) {
+            setGeneratedDocument({
+                ...generatedDocument,
+                content: editedDocumentContent
+            });
+            setIsEditingDocument(false);
+            showStatus('success', 'Documento editado correctamente');
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setIsEditingDocument(false);
+        setEditedDocumentContent('');
     };
 
     const uploadAndTranscribe = async () => {
@@ -394,7 +418,6 @@ const AudioRecorder = () => {
         setShowFinalSuccess(false);
 
         try {
-            // Paso 1: Subir audio
             updateProcessingStep('uploading', 'active');
             const presignResponse = await storageService.presignPut({
                 filename: `medical-dictation-${Date.now()}.webm`,
@@ -414,7 +437,6 @@ const AudioRecorder = () => {
             }
             updateProcessingStep('uploading', 'completed');
 
-            // Paso 2: Registrar en base de datos
             updateProcessingStep('registering', 'active');
             const recordingData = {
                 bucket: presignResponse.bucket,
@@ -427,23 +449,19 @@ const AudioRecorder = () => {
             const recording = await recordingService.createRecording(recordingData);
             updateProcessingStep('registering', 'completed');
 
-            // Paso 3: Iniciar transcripción
             updateProcessingStep('transcribing', 'active');
             await transcriptionService.startTranscription(recording.id);
 
-            // Polling para transcripción
             const result = await transcriptionService.pollTranscriptionStatus(recording.id);
 
             if (result.transcript_text) {
                 setTranscript(result.transcript_text);
                 updateProcessingStep('transcribing', 'completed');
 
-                // Paso 4: Generar documento
                 updateProcessingStep('generating', 'active');
                 await generateMedicalDocument(result.transcript_text);
                 updateProcessingStep('generating', 'completed');
 
-                // Paso 5: Completado
                 updateProcessingStep('completed', 'completed');
 
                 setRecordingState('completed');
@@ -458,7 +476,6 @@ const AudioRecorder = () => {
             setRecordingState('recorded');
             showStatus('error', `Error en procesamiento médico: ${error.message}`);
 
-            // Marcar todos los pasos como error
             setProcessingSteps(prev => prev.map(step => ({
                 ...step,
                 status: step.status === 'active' ? 'error' : step.status
@@ -530,8 +547,8 @@ const AudioRecorder = () => {
         if (step.status === 'pending') {
             return (
                 <div
-                    className="w-10 h-10 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center shadow-inner">
-                    <StepIcon className="w-5 h-5 text-gray-400"/>
+                    className="w-8 h-8 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center shadow-inner">
+                    <StepIcon className="w-4 h-4 text-gray-400"/>
                 </div>
             );
         }
@@ -539,8 +556,8 @@ const AudioRecorder = () => {
         if (step.status === 'active') {
             return (
                 <div
-                    className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${step.gradient} flex items-center justify-center shadow-lg animate-pulse`}>
-                    <StepIcon className="w-5 h-5 text-white"/>
+                    className={`w-8 h-8 rounded-xl bg-gradient-to-br ${step.gradient} flex items-center justify-center shadow-lg animate-pulse`}>
+                    <StepIcon className="w-4 h-4 text-white"/>
                 </div>
             );
         }
@@ -548,8 +565,8 @@ const AudioRecorder = () => {
         if (step.status === 'completed') {
             return (
                 <div
-                    className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${step.gradient} flex items-center justify-center shadow-lg`}>
-                    <CheckCircle className="w-5 h-5 text-white"/>
+                    className={`w-8 h-8 rounded-xl bg-gradient-to-br ${step.gradient} flex items-center justify-center shadow-lg`}>
+                    <CheckCircle className="w-4 h-4 text-white"/>
                 </div>
             );
         }
@@ -557,8 +574,8 @@ const AudioRecorder = () => {
         if (step.status === 'error') {
             return (
                 <div
-                    className="w-10 h-10 rounded-2xl bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center shadow-lg">
-                    <AlertCircle className="w-5 h-5 text-white"/>
+                    className="w-8 h-8 rounded-xl bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center shadow-lg">
+                    <AlertCircle className="w-4 h-4 text-white"/>
                 </div>
             );
         }
@@ -578,8 +595,7 @@ const AudioRecorder = () => {
 
     return (
         <div
-            className="bg-gradient-to-br from-white to-gray-50 rounded-3xl border border-gray-200/50 p-8 shadow-2xl shadow-blue-500/5">
-            {/* Modal de Confirmación de Eliminación */}
+            className="bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-200/50 p-6 shadow-xl shadow-blue-500/5">
             <AnimatePresence>
                 {showDeleteConfirm && (
                     <motion.div
@@ -592,32 +608,32 @@ const AudioRecorder = () => {
                             initial={{scale: 0.9, opacity: 0, y: 20}}
                             animate={{scale: 1, opacity: 1, y: 0}}
                             exit={{scale: 0.9, opacity: 0, y: 20}}
-                            className="bg-gradient-to-br from-white to-gray-50 rounded-3xl p-8 max-w-md w-full shadow-2xl border border-gray-200/50"
+                            className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-gray-200/50"
                         >
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-xl font-bold bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-bold bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">
                                     Confirmar Eliminación
                                 </h3>
                                 <button
                                     onClick={() => setShowDeleteConfirm(false)}
                                     className="p-2 hover:bg-gray-100 rounded-xl transition-all duration-200"
                                 >
-                                    <X className="w-5 h-5 text-gray-500"/>
+                                    <X className="w-4 h-4 text-gray-500"/>
                                 </button>
                             </div>
-                            <p className="text-gray-600 mb-8 text-lg leading-relaxed">
+                            <p className="text-gray-600 mb-6 text-sm leading-relaxed">
                                 ¿Está seguro de que desea eliminar este dictado? Esta acción no se puede deshacer.
                             </p>
-                            <div className="flex space-x-4 justify-end">
+                            <div className="flex space-x-3 justify-end">
                                 <button
                                     onClick={() => setShowDeleteConfirm(false)}
-                                    className="px-6 py-3 text-gray-600 hover:text-gray-800 transition-all duration-200 font-semibold rounded-xl hover:bg-gray-100"
+                                    className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-all duration-200 font-semibold rounded-lg hover:bg-gray-100 text-sm"
                                 >
                                     Cancelar
                                 </button>
                                 <button
                                     onClick={clearRecording}
-                                    className="px-6 py-3 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg shadow-red-500/25"
+                                    className="px-4 py-2 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white rounded-lg font-semibold transition-all duration-200 shadow-lg shadow-red-500/25 text-sm"
                                 >
                                     Eliminar Dictado
                                 </button>
@@ -627,7 +643,6 @@ const AudioRecorder = () => {
                 )}
             </AnimatePresence>
 
-            {/* Modal de Opciones para Nuevo Dictado */}
             <AnimatePresence>
                 {showNewDictationOptions && (
                     <motion.div
@@ -640,48 +655,48 @@ const AudioRecorder = () => {
                             initial={{scale: 0.9, opacity: 0, y: 20}}
                             animate={{scale: 1, opacity: 1, y: 0}}
                             exit={{scale: 0.9, opacity: 0, y: 20}}
-                            className="bg-gradient-to-br from-white to-gray-50 rounded-3xl p-8 max-w-md w-full shadow-2xl border border-gray-200/50"
+                            className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-gray-200/50"
                         >
-                            <div className="text-center mb-8">
+                            <div className="text-center mb-6">
                                 <div
-                                    className="w-16 h-16 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-                                    <Mic className="w-8 h-8 text-white"/>
+                                    className="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center mx-auto mb-3 shadow-lg">
+                                    <Mic className="w-6 h-6 text-white"/>
                                 </div>
-                                <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent mb-2">
+                                <h3 className="text-xl font-bold bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent mb-2">
                                     Nuevo Dictado
                                 </h3>
-                                <p className="text-gray-600 text-lg">
+                                <p className="text-gray-600 text-sm">
                                     ¿Qué tipo de documento desea crear?
                                 </p>
                             </div>
 
-                            <div className="space-y-4 mb-8">
+                            <div className="space-y-3 mb-6">
                                 <motion.button
                                     onClick={() => handleNewDictationChoice('sameType')}
-                                    className="w-full flex items-center space-x-4 p-6 bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-2xl hover:border-blue-300 transition-all duration-200 group"
+                                    className="w-full flex items-center space-x-3 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-xl hover:border-blue-300 transition-all duration-200 group"
                                     whileHover={{scale: 1.02}}
                                     whileTap={{scale: 0.98}}
                                 >
                                     <FileSignature
-                                        className="w-8 h-8 text-blue-500 group-hover:scale-110 transition-transform"/>
+                                        className="w-5 h-5 text-blue-500 group-hover:scale-110 transition-transform"/>
                                     <div className="text-left">
-                                        <div className="font-semibold text-blue-700">Mismo Tipo</div>
-                                        <div className="text-sm text-blue-600">Continuar
+                                        <div className="font-semibold text-blue-700 text-sm">Mismo Tipo</div>
+                                        <div className="text-xs text-blue-600">Continuar
                                             con {currentDocConfig.label}</div>
                                     </div>
                                 </motion.button>
 
                                 <motion.button
                                     onClick={() => handleNewDictationChoice('differentType')}
-                                    className="w-full flex items-center space-x-4 p-6 bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 rounded-2xl hover:border-purple-300 transition-all duration-200 group"
+                                    className="w-full flex items-center space-x-3 p-4 bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 rounded-xl hover:border-purple-300 transition-all duration-200 group"
                                     whileHover={{scale: 1.02}}
                                     whileTap={{scale: 0.98}}
                                 >
                                     <ClipboardList
-                                        className="w-8 h-8 text-purple-500 group-hover:scale-110 transition-transform"/>
+                                        className="w-5 h-5 text-purple-500 group-hover:scale-110 transition-transform"/>
                                     <div className="text-left">
-                                        <div className="font-semibold text-purple-700">Cambiar Tipo</div>
-                                        <div className="text-sm text-purple-600">Seleccionar otro tipo de documento
+                                        <div className="font-semibold text-purple-700 text-sm">Cambiar Tipo</div>
+                                        <div className="text-xs text-purple-600">Seleccionar otro tipo de documento
                                         </div>
                                     </div>
                                 </motion.button>
@@ -689,7 +704,7 @@ const AudioRecorder = () => {
 
                             <button
                                 onClick={() => setShowNewDictationOptions(false)}
-                                className="w-full py-4 text-gray-500 hover:text-gray-700 transition-colors font-semibold rounded-xl hover:bg-gray-100"
+                                className="w-full py-3 text-gray-500 hover:text-gray-700 transition-colors font-semibold rounded-lg hover:bg-gray-100 text-sm"
                             >
                                 Continuar Editando
                             </button>
@@ -698,14 +713,14 @@ const AudioRecorder = () => {
                 )}
             </AnimatePresence>
 
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center justify-between mb-6">
                 <div>
-                    <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+                    <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
                         Sistema de Dictado Médico
                     </h2>
-                    <p className="text-gray-500 text-lg mt-2">Profesional • Seguro • Eficiente</p>
+                    <p className="text-gray-500 text-sm mt-1">Profesional • Seguro • Eficiente</p>
                 </div>
-                <div className={`px-4 py-2 rounded-2xl text-sm font-semibold backdrop-blur-sm border ${
+                <div className={`px-3 py-1 rounded-xl text-xs font-semibold backdrop-blur-sm border ${
                     recordingState === 'recording' ? 'bg-gradient-to-r from-red-500/10 to-orange-500/10 border-red-200 text-red-700' :
                         recordingState === 'paused' ? 'bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border-yellow-200 text-yellow-700' :
                             recordingState === 'processing' ? 'bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-blue-200 text-blue-700' :
@@ -723,46 +738,45 @@ const AudioRecorder = () => {
                 </div>
             </div>
 
-            {/* Sistema de Progreso Moderno */}
             {recordingState === 'processing' && processingSteps.length > 0 && (
                 <motion.div
                     initial={{opacity: 0, y: -10}}
                     animate={{opacity: 1, y: 0}}
-                    className="mb-8 bg-gradient-to-br from-blue-50/80 to-indigo-50/80 rounded-3xl border border-blue-200/50 p-8 backdrop-blur-sm"
+                    className="mb-6 bg-gradient-to-br from-blue-50/80 to-indigo-50/80 rounded-xl border border-blue-200/50 p-4 backdrop-blur-sm"
                 >
-                    <div className="flex items-center space-x-4 mb-6">
+                    <div className="flex items-center space-x-3 mb-4">
                         <div
-                            className="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg">
-                            <Shield className="w-6 h-6 text-white"/>
+                            className="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg">
+                            <Shield className="w-5 h-5 text-white"/>
                         </div>
                         <div>
-                            <h3 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                            <h3 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
                                 Procesamiento Médico
                             </h3>
-                            <p className="text-blue-600/70">Procesando su dictado de forma segura</p>
+                            <p className="text-blue-600/70 text-sm">Procesando su dictado de forma segura</p>
                         </div>
                     </div>
 
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                         {processingSteps.map((step, index) => (
                             <motion.div
                                 key={step.key}
                                 initial={{opacity: 0, x: -20}}
                                 animate={{opacity: 1, x: 0}}
                                 transition={{delay: index * 0.1}}
-                                className="flex items-center space-x-6 p-6 bg-white/80 rounded-2xl border border-gray-200/50 backdrop-blur-sm shadow-lg shadow-blue-500/5"
+                                className="flex items-center space-x-4 p-4 bg-white/80 rounded-xl border border-gray-200/50 backdrop-blur-sm shadow-lg shadow-blue-500/5"
                             >
                                 {getStepIcon(step)}
                                 <div className="flex-1">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className={`text-lg font-semibold ${getStepTextColor(step)}`}>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className={`text-base font-semibold ${getStepTextColor(step)}`}>
                                             {step.title}
                                         </span>
                                         {step.status === 'active' && (
-                                            <div className={`w-3 h-3 rounded-full ${step.pulseColor} animate-ping`}/>
+                                            <div className={`w-2 h-2 rounded-full ${step.pulseColor} animate-ping`}/>
                                         )}
                                     </div>
-                                    <p className="text-gray-600 text-base">{step.description}</p>
+                                    <p className="text-gray-600 text-sm">{step.description}</p>
                                 </div>
                             </motion.div>
                         ))}
@@ -770,12 +784,11 @@ const AudioRecorder = () => {
                 </motion.div>
             )}
 
-            {/* Notificación de Estado */}
             {uploadStatus && !(recordingState === 'processing') && !showFinalSuccess && (
                 <motion.div
                     initial={{opacity: 0, y: -10}}
                     animate={{opacity: 1, y: 0}}
-                    className={`mb-8 p-6 rounded-2xl border backdrop-blur-sm ${
+                    className={`mb-6 p-4 rounded-xl border backdrop-blur-sm ${
                         uploadStatus === 'success'
                             ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200/50 text-green-800 shadow-lg shadow-green-500/10' :
                             uploadStatus === 'error'
@@ -785,39 +798,39 @@ const AudioRecorder = () => {
                                     'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-200/50 text-yellow-800 shadow-lg shadow-yellow-500/10'
                     }`}
                 >
-                    <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-3">
                         {uploadStatus === 'success' && (
                             <div
-                                className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center shadow-lg">
-                                <CheckCircle className="w-6 h-6 text-white"/>
+                                className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg">
+                                <CheckCircle className="w-5 h-5 text-white"/>
                             </div>
                         )}
                         {uploadStatus === 'error' && (
                             <div
-                                className="w-12 h-12 bg-gradient-to-r from-red-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg">
-                                <AlertCircle className="w-6 h-6 text-white"/>
+                                className="w-10 h-10 bg-gradient-to-r from-red-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
+                                <AlertCircle className="w-5 h-5 text-white"/>
                             </div>
                         )}
                         {uploadStatus === 'processing' && (
                             <div
-                                className="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg">
+                                className="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg">
                                 <div
-                                    className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"/>
+                                    className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/>
                             </div>
                         )}
                         {uploadStatus === 'info' && (
                             <div
-                                className="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg">
-                                <Clock className="w-6 h-6 text-white"/>
+                                className="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg">
+                                <Clock className="w-5 h-5 text-white"/>
                             </div>
                         )}
                         {uploadStatus === 'warning' && (
                             <div
-                                className="w-12 h-12 bg-gradient-to-r from-yellow-500 to-amber-500 rounded-2xl flex items-center justify-center shadow-lg">
-                                <AlertCircle className="w-6 h-6 text-white"/>
+                                className="w-10 h-10 bg-gradient-to-r from-yellow-500 to-amber-500 rounded-xl flex items-center justify-center shadow-lg">
+                                <AlertCircle className="w-5 h-5 text-white"/>
                             </div>
                         )}
-                        <p className="font-semibold text-lg">{statusMessage}</p>
+                        <p className="font-semibold text-base">{statusMessage}</p>
                     </div>
                 </motion.div>
             )}
@@ -826,10 +839,10 @@ const AudioRecorder = () => {
                 <motion.div
                     initial={{opacity: 0, y: 20}}
                     animate={{opacity: 1, y: 0}}
-                    className="mb-8"
+                    className="mb-6"
                 >
                     <label
-                        className="block text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent mb-6">
+                        className="block text-lg font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent mb-4">
                         Tipo de Documento Médico
                     </label>
                     <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
@@ -863,30 +876,30 @@ const AudioRecorder = () => {
                 </motion.div>
             )}
 
-            <div className="space-y-8">
+            <div className="space-y-6">
                 {recordingState !== 'completed' ? (
                     <div className="text-center">
                         {(recordingState === 'recording' || recordingState === 'paused') && (
-                            <div className="mb-8">
+                            <div className="mb-6">
                                 <div
-                                    className="flex items-center justify-center space-x-3 text-lg font-semibold text-gray-600 mb-6">
-                                    <div className={`w-3 h-3 rounded-full ${
+                                    className="flex items-center justify-center space-x-2 text-base font-semibold text-gray-600 mb-4">
+                                    <div className={`w-2 h-2 rounded-full ${
                                         recordingState === 'paused' ? 'bg-gradient-to-r from-yellow-500 to-amber-500' : 'bg-gradient-to-r from-red-500 to-orange-500'
                                     } animate-pulse shadow-lg`}/>
-                                    <span>
+                                    <span className="text-sm">
                                         {recordingState === 'paused' ? 'DICTADO PAUSADO' : 'GRABANDO DICTADO MÉDICO'}
                                     </span>
                                 </div>
 
                                 {recordingState === 'recording' && (
-                                    <div className="flex justify-center space-x-2 mb-6">
+                                    <div className="flex justify-center space-x-1 mb-4">
                                         {[1, 2, 3, 4, 3, 2, 3, 4, 5, 4, 3, 2].map((height, index) => (
                                             <motion.div
                                                 key={index}
-                                                className="w-2 bg-gradient-to-t from-blue-500 to-cyan-500 rounded-full shadow-lg"
-                                                style={{height: `${height * 8}px`}}
+                                                className="w-1 bg-gradient-to-t from-blue-500 to-cyan-500 rounded-full shadow-lg"
+                                                style={{height: `${height * 6}px`}}
                                                 animate={{
-                                                    height: [height * 8, height * 12, height * 8],
+                                                    height: [height * 6, height * 8, height * 6],
                                                 }}
                                                 transition={{
                                                     duration: 0.5,
@@ -899,52 +912,52 @@ const AudioRecorder = () => {
                                 )}
 
                                 <div
-                                    className="text-4xl font-mono font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent mb-4">
+                                    className="text-3xl font-mono font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent mb-3">
                                     {formatTime(recordingTime)}
                                 </div>
                             </div>
                         )}
 
-                        <div className="flex justify-center space-x-6">
+                        <div className="flex justify-center space-x-4">
                             {recordingState === 'idle' ? (
                                 <motion.button
                                     onClick={startRecording}
-                                    className="flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white rounded-2xl font-bold text-lg shadow-2xl shadow-red-500/25 transition-all duration-300 group"
-                                    whileHover={{scale: 1.05, shadow: "0 20px 40px -10px rgba(239, 68, 68, 0.4)"}}
-                                    whileTap={{scale: 0.95}}
+                                    className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white rounded-xl font-bold text-base shadow-xl shadow-red-500/25 transition-all duration-300 group"
+                                    whileHover={{scale: 1.03, shadow: "0 15px 30px -8px rgba(239, 68, 68, 0.3)"}}
+                                    whileTap={{scale: 0.97}}
                                 >
-                                    <Mic className="w-6 h-6 group-hover:scale-110 transition-transform"/>
+                                    <Mic className="w-4 h-4 group-hover:scale-110 transition-transform"/>
                                     <span>Iniciar Dictado Médico</span>
                                 </motion.button>
                             ) : (recordingState === 'recording' || recordingState === 'paused') ? (
                                 <>
                                     <motion.button
                                         onClick={togglePause}
-                                        className="flex items-center space-x-3 px-6 py-4 bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-600 hover:to-amber-600 text-white rounded-2xl font-bold shadow-2xl shadow-yellow-500/25 transition-all duration-300 group"
-                                        whileHover={{scale: 1.05}}
-                                        whileTap={{scale: 0.95}}
+                                        className="flex items-center space-x-2 px-4 py-3 bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-600 hover:to-amber-600 text-white rounded-xl font-bold shadow-xl shadow-yellow-500/25 transition-all duration-300 group"
+                                        whileHover={{scale: 1.03}}
+                                        whileTap={{scale: 0.97}}
                                     >
                                         {recordingState === 'paused' ?
-                                            <Play className="w-5 h-5 group-hover:scale-110 transition-transform"/> :
-                                            <Pause className="w-5 h-5 group-hover:scale-110 transition-transform"/>
+                                            <Play className="w-4 h-4 group-hover:scale-110 transition-transform"/> :
+                                            <Pause className="w-4 h-4 group-hover:scale-110 transition-transform"/>
                                         }
-                                        <span>{recordingState === 'paused' ? 'Reanudar' : 'Pausar'}</span>
+                                        <span className="text-sm">{recordingState === 'paused' ? 'Reanudar' : 'Pausar'}</span>
                                     </motion.button>
 
                                     <motion.button
                                         onClick={stopRecording}
-                                        className="flex items-center space-x-3 px-6 py-4 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white rounded-2xl font-bold shadow-2xl shadow-gray-500/25 transition-all duration-300 group"
-                                        whileHover={{scale: 1.05}}
-                                        whileTap={{scale: 0.95}}
+                                        className="flex items-center space-x-2 px-4 py-3 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white rounded-xl font-bold shadow-xl shadow-gray-500/25 transition-all duration-300 group"
+                                        whileHover={{scale: 1.03}}
+                                        whileTap={{scale: 0.97}}
                                     >
-                                        <Square className="w-5 h-5 group-hover:scale-110 transition-transform"/>
-                                        <span>Finalizar Dictado</span>
+                                        <Square className="w-4 h-4 group-hover:scale-110 transition-transform"/>
+                                        <span className="text-sm">Finalizar Dictado</span>
                                     </motion.button>
                                 </>
                             ) : (recordingState === 'recorded' || recordingState === 'processing') && (
-                                <div className="space-y-6 w-full max-w-2xl mx-auto">
+                                <div className="space-y-4 w-full max-w-2xl mx-auto">
                                     <div
-                                        className="flex items-center space-x-6 p-6 bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-200/50 shadow-lg">
+                                        className="flex items-center space-x-4 p-4 bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-200/50 shadow-lg">
                                         <audio
                                             ref={audioRef}
                                             src={recordedAudio}
@@ -953,22 +966,22 @@ const AudioRecorder = () => {
                                         />
                                         <motion.button
                                             onClick={handleDeleteClick}
-                                            className="p-3 text-gray-500 hover:text-red-500 transition-all duration-200 hover:bg-red-50 rounded-xl"
-                                            whileHover={{scale: 1.1}}
+                                            className="p-2 text-gray-500 hover:text-red-500 transition-all duration-200 hover:bg-red-50 rounded-lg"
+                                            whileHover={{scale: 1.05}}
                                         >
-                                            <Trash2 className="w-6 h-6"/>
+                                            <Trash2 className="w-4 h-4"/>
                                         </motion.button>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-6 text-base text-gray-600">
+                                    <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
                                         <div
-                                            className="flex items-center space-x-3 p-4 bg-white rounded-xl border border-gray-200/50">
-                                            <Clock className="w-5 h-5 text-blue-500"/>
+                                            className="flex items-center space-x-2 p-3 bg-white rounded-lg border border-gray-200/50">
+                                            <Clock className="w-4 h-4 text-blue-500"/>
                                             <span>Duración: {formatTime(recordingTime)}</span>
                                         </div>
                                         <div
-                                            className="flex items-center space-x-3 p-4 bg-white rounded-xl border border-gray-200/50">
-                                            <FileDown className="w-5 h-5 text-green-500"/>
+                                            className="flex items-center space-x-2 p-3 bg-white rounded-lg border border-gray-200/50">
+                                            <FileDown className="w-4 h-4 text-green-500"/>
                                             <span>Tamaño: {(audioBlob?.size / 1024 / 1024).toFixed(2)} MB</span>
                                         </div>
                                     </div>
@@ -976,19 +989,19 @@ const AudioRecorder = () => {
                                     <motion.button
                                         onClick={uploadAndTranscribe}
                                         disabled={recordingState === 'processing'}
-                                        className="w-full flex justify-center items-center space-x-3 py-5 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 disabled:from-green-300 disabled:to-emerald-300 text-white rounded-2xl font-bold text-lg shadow-2xl shadow-green-500/25 transition-all duration-300 group"
+                                        className="w-full flex justify-center items-center space-x-2 py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 disabled:from-green-300 disabled:to-emerald-300 text-white rounded-xl font-bold text-base shadow-xl shadow-green-500/25 transition-all duration-300 group"
                                         whileHover={recordingState !== 'processing' ? {scale: 1.02} : {}}
                                         whileTap={{scale: 0.98}}
                                     >
                                         {recordingState === 'processing' ? (
                                             <>
                                                 <div
-                                                    className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"/>
-                                                <span>Procesando Dictado Médico...</span>
+                                                    className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/>
+                                                <span className="text-sm">Procesando Dictado Médico...</span>
                                             </>
                                         ) : (
                                             <>
-                                                <Upload className="w-6 h-6 group-hover:scale-110 transition-transform"/>
+                                                <Upload className="w-4 h-4 group-hover:scale-110 transition-transform"/>
                                                 <span>Procesar con IA Médica</span>
                                             </>
                                         )}
@@ -1001,22 +1014,21 @@ const AudioRecorder = () => {
                     <motion.div
                         initial={{opacity: 0, y: 20}}
                         animate={{opacity: 1, y: 0}}
-                        className="space-y-8"
+                        className="space-y-6"
                     >
-                        {/* Banner de éxito final */}
                         {showFinalSuccess && (
                             <div
-                                className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-3xl p-8 border border-green-200/50 shadow-2xl shadow-green-500/10">
-                                <div className="flex items-center space-x-6">
+                                className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200/50 shadow-xl shadow-green-500/10">
+                                <div className="flex items-center space-x-4">
                                     <div
-                                        className="w-16 h-16 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center shadow-lg">
-                                        <CheckCircle className="w-8 h-8 text-white"/>
+                                        className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg">
+                                        <CheckCircle className="w-6 h-6 text-white"/>
                                     </div>
                                     <div>
-                                        <h3 className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                                        <h3 className="text-xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
                                             Proceso Médico Completado
                                         </h3>
-                                        <p className="text-green-700/80 text-lg mt-2">
+                                        <p className="text-green-700/80 text-sm mt-1">
                                             Dictado transcrito y documento médico generado exitosamente
                                         </p>
                                     </div>
@@ -1024,9 +1036,8 @@ const AudioRecorder = () => {
                             </div>
                         )}
 
-                        {/* Audio Player */}
                         <div
-                            className="flex items-center space-x-6 p-6 bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-200/50 shadow-lg">
+                            className="flex items-center space-x-4 p-4 bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-200/50 shadow-lg">
                             <audio
                                 ref={audioRef}
                                 src={recordedAudio}
@@ -1035,123 +1046,161 @@ const AudioRecorder = () => {
                             />
                             <motion.button
                                 onClick={handleDeleteClick}
-                                className="p-3 text-gray-500 hover:text-red-500 transition-all duration-200 hover:bg-red-50 rounded-xl"
-                                whileHover={{scale: 1.1}}
+                                className="p-2 text-gray-500 hover:text-red-500 transition-all duration-200 hover:bg-red-50 rounded-lg"
+                                whileHover={{scale: 1.05}}
                             >
-                                <Trash2 className="w-6 h-6"/>
+                                <Trash2 className="w-4 h-4"/>
                             </motion.button>
                         </div>
 
-                        {/* Información del audio */}
-                        <div className="grid grid-cols-2 gap-6 text-base">
+                        <div className="grid grid-cols-2 gap-4 text-sm">
                             <div
-                                className="flex items-center space-x-3 p-4 bg-white rounded-xl border border-gray-200/50 shadow-sm">
-                                <Clock className="w-5 h-5 text-blue-500"/>
+                                className="flex items-center space-x-2 p-3 bg-white rounded-lg border border-gray-200/50 shadow-sm">
+                                <Clock className="w-4 h-4 text-blue-500"/>
                                 <span className="text-gray-700">Duración: {formatTime(recordingTime)}</span>
                             </div>
                             <div
-                                className="flex items-center space-x-3 p-4 bg-white rounded-xl border border-gray-200/50 shadow-sm">
-                                <FileDown className="w-5 h-5 text-green-500"/>
+                                className="flex items-center space-x-2 p-3 bg-white rounded-lg border border-gray-200/50 shadow-sm">
+                                <FileDown className="w-4 h-4 text-green-500"/>
                                 <span
                                     className="text-gray-700">Tamaño: {(audioBlob?.size / 1024 / 1024).toFixed(2)} MB</span>
                             </div>
                         </div>
 
-                        {/* Transcripción */}
                         <div
-                            className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl border border-blue-200/50 shadow-lg overflow-hidden">
+                            className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl border border-blue-200/50 shadow-lg overflow-hidden">
                             <div
-                                className="p-6 border-b border-blue-200/50 bg-gradient-to-r from-blue-500/5 to-cyan-500/5">
-                                <h3 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent flex items-center">
-                                    <FileText className="w-6 h-6 mr-3"/>
+                                className="p-4 border-b border-blue-200/50 bg-gradient-to-r from-blue-500/5 to-cyan-500/5">
+                                <h3 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent flex items-center">
+                                    <FileText className="w-5 h-5 mr-2"/>
                                     Transcripción Médica
                                 </h3>
                             </div>
-                            <div className="p-6">
-                                <div className="bg-white rounded-xl border border-blue-100 p-6 shadow-inner">
-                                    <p className="text-blue-800 whitespace-pre-wrap leading-relaxed text-lg min-h-[120px]">
+                            <div className="p-4">
+                                <div className="bg-white rounded-lg border border-blue-100 p-4 shadow-inner">
+                                    <p className="text-blue-800 whitespace-pre-wrap leading-relaxed text-sm min-h-[80px]">
                                         {transcript}
                                     </p>
                                 </div>
-                                <div className="flex justify-end mt-4">
+                                <div className="flex justify-end mt-3">
                                     <motion.button
                                         onClick={handleCopyTranscript}
-                                        className="flex items-center space-x-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-xl font-semibold shadow-lg shadow-blue-500/25 transition-all duration-200"
-                                        whileHover={{scale: 1.05}}
+                                        className="flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-lg font-semibold shadow-lg shadow-blue-500/25 transition-all duration-200 text-sm"
+                                        whileHover={{scale: 1.03}}
                                     >
-                                        <Copy className="w-4 h-4"/>
+                                        <Copy className="w-3 h-3"/>
                                         <span>Copiar Texto</span>
                                     </motion.button>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Documento Generado */}
                         {generatedDocument && (
                             <div
-                                className={`rounded-2xl border shadow-lg overflow-hidden bg-gradient-to-br ${currentDocConfig.lightGradient} border-${currentDocConfig.color}-200/50`}>
-                                <div className={`p-6 border-b bg-gradient-to-r ${currentDocConfig.borderGradient}`}>
-                                    <h3 className="text-xl font-bold flex items-center">
-                                        <currentDocConfig.icon className="w-6 h-6 mr-3"/>
-                                        <span
-                                            className={`bg-gradient-to-r ${currentDocConfig.textGradient} bg-clip-text text-transparent`}>
-                                            Documento Médico - {currentDocConfig.label}
-                                        </span>
+                                className={`rounded-xl border shadow-lg overflow-hidden bg-gradient-to-br ${currentDocConfig.lightGradient} border-${currentDocConfig.color}-200/50`}>
+                                <div className={`p-4 border-b bg-gradient-to-r ${currentDocConfig.borderGradient}`}>
+                                    <h3 className="text-lg font-bold flex items-center justify-between">
+                                        <div className="flex items-center">
+                                            <currentDocConfig.icon className="w-5 h-5 mr-2"/>
+                                            <span
+                                                className={`bg-gradient-to-r ${currentDocConfig.textGradient} bg-clip-text text-transparent`}>
+                                                Documento Médico - {currentDocConfig.label}
+                                            </span>
+                                        </div>
+                                        {!isEditingDocument && (
+                                            <motion.button
+                                                onClick={handleEditDocument}
+                                                className={`flex items-center space-x-2 px-3 py-1 bg-gradient-to-r ${currentDocConfig.gradient} hover:brightness-110 text-white rounded-lg font-semibold shadow-lg ${currentDocConfig.shadow} transition-all duration-200 text-sm`}
+                                                whileHover={{scale: 1.03}}
+                                            >
+                                                <Edit3 className="w-3 h-3"/>
+                                                <span>Editar Documento</span>
+                                            </motion.button>
+                                        )}
                                     </h3>
                                 </div>
-                                <div className="p-6">
-                                    <div
-                                        className="bg-white rounded-xl border border-gray-100 p-6 shadow-inner max-h-96 overflow-y-auto">
-                                        <pre className="whitespace-pre-wrap leading-relaxed text-gray-800 text-base">
-                                            {generatedDocument.content}
-                                        </pre>
-                                    </div>
-                                    <div className="flex justify-end space-x-4 mt-4">
-                                        <motion.button
-                                            onClick={handleCopyDocument}
-                                            className={`flex items-center space-x-2 px-4 py-3 bg-gradient-to-r ${currentDocConfig.gradient} hover:brightness-110 text-white rounded-xl font-semibold shadow-lg ${currentDocConfig.shadow} transition-all duration-200`}
-                                            whileHover={{scale: 1.05}}
-                                        >
-                                            <Copy className="w-4 h-4"/>
-                                            <span>Copiar</span>
-                                        </motion.button>
-                                        <motion.button
-                                            onClick={handleDownloadDocument}
-                                            className={`flex items-center space-x-2 px-4 py-3 bg-gradient-to-r ${currentDocConfig.gradient} hover:brightness-110 text-white rounded-xl font-semibold shadow-lg ${currentDocConfig.shadow} transition-all duration-200`}
-                                            whileHover={{scale: 1.05}}
-                                        >
-                                            <Download className="w-4 h-4"/>
-                                            <span>Descargar</span>
-                                        </motion.button>
-                                    </div>
+                                <div className="p-4">
+                                    {isEditingDocument ? (
+                                        <div className="space-y-3">
+                                            <textarea
+                                                value={editedDocumentContent}
+                                                onChange={(e) => setEditedDocumentContent(e.target.value)}
+                                                className="w-full h-64 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+                                                placeholder="Edite el contenido del documento médico..."
+                                            />
+                                            <div className="flex justify-end space-x-3">
+                                                <motion.button
+                                                    onClick={handleCancelEdit}
+                                                    className="px-3 py-1 text-gray-600 hover:text-gray-800 transition-colors font-semibold text-sm"
+                                                    whileHover={{scale: 1.03}}
+                                                >
+                                                    Cancelar
+                                                </motion.button>
+                                                <motion.button
+                                                    onClick={handleSaveEditedDocument}
+                                                    className={`flex items-center space-x-2 px-3 py-1 bg-gradient-to-r ${currentDocConfig.gradient} hover:brightness-110 text-white rounded-lg font-semibold shadow-lg ${currentDocConfig.shadow} transition-all duration-200 text-sm`}
+                                                    whileHover={{scale: 1.03}}
+                                                >
+                                                    <Save className="w-3 h-3"/>
+                                                    <span>Guardar Cambios</span>
+                                                </motion.button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="bg-white rounded-lg border border-gray-100 p-4 shadow-inner max-h-64 overflow-y-auto">
+                                                <pre className="whitespace-pre-wrap leading-relaxed text-gray-800 text-sm">
+                                                    {generatedDocument.content}
+                                                </pre>
+                                            </div>
+                                            <div className="flex justify-end space-x-3 mt-3">
+                                                <motion.button
+                                                    onClick={handleCopyDocument}
+                                                    className={`flex items-center space-x-2 px-3 py-2 bg-gradient-to-r ${currentDocConfig.gradient} hover:brightness-110 text-white rounded-lg font-semibold shadow-lg ${currentDocConfig.shadow} transition-all duration-200 text-sm`}
+                                                    whileHover={{scale: 1.03}}
+                                                >
+                                                    <Copy className="w-3 h-3"/>
+                                                    <span>Copiar</span>
+                                                </motion.button>
+                                                <motion.button
+                                                    onClick={handleDownloadDocument}
+                                                    className={`flex items-center space-x-2 px-3 py-2 bg-gradient-to-r ${currentDocConfig.gradient} hover:brightness-110 text-white rounded-lg font-semibold shadow-lg ${currentDocConfig.shadow} transition-all duration-200 text-sm`}
+                                                    whileHover={{scale: 1.03}}
+                                                >
+                                                    <Download className="w-3 h-3"/>
+                                                    <span>Descargar</span>
+                                                </motion.button>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         )}
 
-                        {/* Acciones finales - MEJORADO */}
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                             <motion.button
                                 onClick={handleNewDictation}
-                                className="flex items-center justify-center space-x-3 py-5 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white rounded-2xl font-bold text-lg shadow-2xl shadow-gray-500/25 transition-all duration-300 group"
-                                whileHover={{scale: 1.05}}
+                                className="flex items-center justify-center space-x-2 py-3 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white rounded-xl font-bold text-sm shadow-xl shadow-gray-500/25 transition-all duration-300 group"
+                                whileHover={{scale: 1.03}}
                             >
-                                <RotateCcw className="w-5 h-5 group-hover:rotate-180 transition-transform"/>
+                                <RotateCcw className="w-4 h-4 group-hover:rotate-180 transition-transform"/>
                                 <span>Nuevo Dictado</span>
                             </motion.button>
 
                             <motion.button
-                                className="flex items-center justify-center space-x-3 py-5 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-2xl font-bold text-lg shadow-2xl shadow-blue-500/25 transition-all duration-300 group"
-                                whileHover={{scale: 1.05}}
+                                onClick={handleEditDocument}
+                                className="flex items-center justify-center space-x-2 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-xl font-bold text-sm shadow-xl shadow-blue-500/25 transition-all duration-300 group"
+                                whileHover={{scale: 1.03}}
                             >
-                                <Edit3 className="w-5 h-5 group-hover:scale-110 transition-transform"/>
+                                <Edit3 className="w-4 h-4 group-hover:scale-110 transition-transform"/>
                                 <span>Editar Documento</span>
                             </motion.button>
 
                             <motion.button
-                                className="flex items-center justify-center space-x-3 py-5 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-2xl font-bold text-lg shadow-2xl shadow-purple-500/25 transition-all duration-300 group"
-                                whileHover={{scale: 1.05}}
+                                className="flex items-center justify-center space-x-2 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl font-bold text-sm shadow-xl shadow-purple-500/25 transition-all duration-300 group"
+                                whileHover={{scale: 1.03}}
                             >
-                                <FileDown className="w-5 h-5 group-hover:scale-110 transition-transform"/>
+                                <FileDown className="w-4 h-4 group-hover:scale-110 transition-transform"/>
                                 <span>Exportar a HIS</span>
                             </motion.button>
                         </div>
