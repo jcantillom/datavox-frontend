@@ -1,5 +1,4 @@
-// src/services/api.js - VERSIÓN PROFESIONAL MEJORADA
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
 class ApiService {
     constructor() {
@@ -23,7 +22,7 @@ class ApiService {
         };
 
         if (includeAuth) {
-            const token = localStorage.getItem('authToken');
+            const token = this.getToken();
             if (token) {
                 headers['Authorization'] = `Bearer ${token}`;
             }
@@ -32,12 +31,14 @@ class ApiService {
         return headers;
     }
 
+    getToken() {
+        return localStorage.getItem('authToken');
+    }
+
     async handleResponse(response) {
         if (!response.ok) {
-            // Manejo específico de errores HTTP
             if (response.status === 401) {
-                localStorage.removeItem('authToken');
-                localStorage.removeItem('userInfo');
+                this.clearAuth();
                 window.location.href = '/login';
                 throw new Error('Sesión expirada. Por favor inicie sesión nuevamente.');
             }
@@ -55,10 +56,10 @@ class ApiService {
             }
 
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.detail || errorData.message || `Error: ${response.status}`);
+            const errorMessage = errorData.detail || errorData.message || `Error: ${response.status}`;
+            throw new Error(errorMessage);
         }
 
-        // Para respuestas sin contenido (204)
         if (response.status === 204) {
             return {success: true};
         }
@@ -66,16 +67,21 @@ class ApiService {
         return response.json();
     }
 
+    clearAuth() {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('userInfo');
+        localStorage.removeItem('tenantCode');
+    }
+
     async request(url, options, includeAuth = true) {
         try {
             const response = await fetch(`${this.baseURL}${url}`, {
-                ...options,
-                headers: this.getHeaders(includeAuth),
+                ...options, headers: this.getHeaders(includeAuth),
             });
 
             return await this.handleResponse(response);
         } catch (error) {
-            // Reintentar en caso de error de red
             if (this.retryCount < this.maxRetries && error.message.includes('Network')) {
                 this.retryCount++;
                 console.warn(`Reintentando request (${this.retryCount}/${this.maxRetries})...`);
@@ -94,22 +100,19 @@ class ApiService {
 
     async post(url, data, includeAuth = true) {
         return this.request(url, {
-            method: 'POST',
-            body: JSON.stringify(data),
+            method: 'POST', body: JSON.stringify(data),
         }, includeAuth);
     }
 
     async put(url, data, includeAuth = true) {
         return this.request(url, {
-            method: 'PUT',
-            body: JSON.stringify(data),
+            method: 'PUT', body: JSON.stringify(data),
         }, includeAuth);
     }
 
     async patch(url, data, includeAuth = true) {
         return this.request(url, {
-            method: 'PATCH',
-            body: JSON.stringify(data),
+            method: 'PATCH', body: JSON.stringify(data),
         }, includeAuth);
     }
 
@@ -117,16 +120,13 @@ class ApiService {
         return this.request(url, {method: 'DELETE'}, includeAuth);
     }
 
-    // Método específico para upload de archivos
     async upload(url, formData, includeAuth = true) {
         const headers = this.getHeaders(includeAuth);
-        delete headers['Content-Type']; // Dejar que el browser lo establezca
+        delete headers['Content-Type'];
 
         try {
             const response = await fetch(`${this.baseURL}${url}`, {
-                method: 'POST',
-                headers: headers,
-                body: formData,
+                method: 'POST', headers: headers, body: formData,
             });
 
             return await this.handleResponse(response);
