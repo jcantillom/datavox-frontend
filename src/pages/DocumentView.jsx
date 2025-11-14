@@ -14,13 +14,16 @@ const DOCUMENT_TYPES_MAP = {
     incapacity: {label: 'Incapacidad', color: 'red', icon: FileText}
 };
 
-const DocumentView = ({documentId, onBack}) => {
+const DocumentView = ({documentId, onBack, notifications}) => { // Recibe notifications
     const [documentData, setDocumentData] = useState(null);
     const [content, setContent] = useState('');
     const [loading, setLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
     const [error, setError] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
+
+    const { success, error: notifyError, info } = notifications; // Aseguramos 'info' aunque no se use en este archivo
+
 
     // Definición segura de la configuración
     const docConfig = documentData ?
@@ -41,13 +44,13 @@ const DocumentView = ({documentId, onBack}) => {
         setLoading(true);
         setError(null);
         try {
-            // Suponiendo un servicio para obtener el documento por ID (que debemos agregar a clinical.js)
             const doc = await clinicalService.getDocumentById(documentId);
             setDocumentData(doc);
             setContent(doc.content);
         } catch (err) {
             console.error("Error cargando documento:", err);
             setError(err.message || "No se pudo cargar el documento.");
+            notifyError(`Error cargando documento ID ${documentId.substring(0, 8)}...: ${err.message}`, 8000);
         } finally {
             setLoading(false);
         }
@@ -62,13 +65,16 @@ const DocumentView = ({documentId, onBack}) => {
 
             setDocumentData(updatedDoc);
             setIsEditing(false);
+
+            // CORRECCIÓN DE ALERTS GENÉRICOS (Reemplazo por Toasts)
             if (isFinalizing) {
-                alert("Documento Finalizado. Listo para ser exportado.");
+                success("Documento Finalizado y Aprobado. Listo para exportación.", 7000);
             } else {
-                alert("Cambios guardados.");
+                success("Borrador guardado exitosamente.", 5000);
             }
         } catch (err) {
             setError(err.message || "Error al guardar el documento.");
+            notifyError(`Error al guardar cambios: ${err.message}`, 8000);
         } finally {
             setIsSaving(false);
         }
@@ -76,18 +82,23 @@ const DocumentView = ({documentId, onBack}) => {
 
     const handleExport = async () => {
         if (!documentData.is_finalized) {
-            alert("Debe finalizar el documento antes de exportar.");
+            notifyError("Acción Requerida: Debe finalizar el documento antes de exportar a HIS.", 6000);
             return;
         }
 
         setIsSaving(true);
         setError(null);
         try {
+            // CORRECCIÓN DE ALERTS GENÉRICOS (Reemplazo por Toasts)
+            info('Sincronización Iniciada: El documento está siendo procesado para el HIS (Asíncrono).', 7000);
             const exportedDoc = await clinicalService.exportDocument(documentId);
-            setDocumentData(exportedDoc);
-            alert(`Documento Exportado a HIS: ${exportedDoc.is_synced ? 'Sincronización Iniciada' : 'Error en Integración'}`);
+
+            setDocumentData(exportedDoc); // Actualiza el estado a is_synced: true
+
+            success("Exportación a HIS disparada con éxito.", 7000);
         } catch (e) {
             setError(e.message || "Error al disparar la exportación.");
+            notifyError(`Fallo en la exportación: ${e.message}`, 8000);
         } finally {
             setIsSaving(false);
         }
@@ -108,12 +119,14 @@ const DocumentView = ({documentId, onBack}) => {
 
     if (error && !documentData) {
         return (
-            <div className="text-center p-10 bg-red-50/70 border border-red-200 rounded-2xl shadow-xl text-red-700 font-semibold">
+            <div
+                className="text-center p-10 bg-red-50/70 border border-red-200 rounded-2xl shadow-xl text-red-700 font-semibold">
                 <AlertCircle className="w-6 h-6 mx-auto mb-3"/>
                 {error}
-                <button onClick={onBack} className="mt-4 text-blue-600 font-semibold flex items-center mx-auto">
+                <motion.button onClick={onBack} className="mt-4 text-blue-600 font-semibold flex items-center mx-auto"
+                               whileTap={{scale: 0.95}}>
                     <ArrowLeft className="w-4 h-4 mr-2"/> Volver a Reportes
-                </button>
+                </motion.button>
             </div>
         );
     }
@@ -125,9 +138,9 @@ const DocumentView = ({documentId, onBack}) => {
             transition={{duration: 0.6}}
             className="space-y-6"
         >
-            <div className="flex justify-between items-center bg-white/70 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-gray-200/50">
+            <div
+                className="flex justify-between items-center bg-white/70 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-gray-200/50">
                 <h2 className="text-3xl font-bold text-gray-900 flex items-center space-x-3">
-                    {/* CORRECCIÓN: Usa DocIcon extraído */}
                     <DocIcon className={`w-8 h-8 text-${docConfig.color}-600`}/>
                     <span>{docConfig.label} - Revisión Final</span>
                 </h2>
@@ -142,7 +155,8 @@ const DocumentView = ({documentId, onBack}) => {
             </div>
 
             {error && (
-                <div className="p-3 bg-red-50/70 border border-red-200 rounded-xl text-red-700 text-sm flex items-center space-x-2">
+                <div
+                    className="p-3 bg-red-50/70 border border-red-200 rounded-xl text-red-700 text-sm flex items-center space-x-2">
                     <AlertCircle className="w-4 h-4"/>
                     <span>{error}</span>
                 </div>
@@ -176,7 +190,8 @@ const DocumentView = ({documentId, onBack}) => {
                         disabled={isSaving}
                     />
                 ) : (
-                    <div className="w-full h-96 p-4 border border-gray-100 bg-gray-50 rounded-lg overflow-y-auto shadow-inner text-gray-800 whitespace-pre-wrap text-sm">
+                    <div
+                        className="w-full h-96 p-4 border border-gray-100 bg-gray-50 rounded-lg overflow-y-auto shadow-inner text-gray-800 whitespace-pre-wrap text-sm">
                         {documentData.content}
                     </div>
                 )}
@@ -186,7 +201,10 @@ const DocumentView = ({documentId, onBack}) => {
                     {isEditing ? (
                         <>
                             <motion.button
-                                onClick={() => {setContent(documentData.content); setIsEditing(false);}}
+                                onClick={() => {
+                                    setContent(documentData.content);
+                                    setIsEditing(false);
+                                }}
                                 className="px-4 py-2 text-gray-600 font-semibold rounded-xl hover:bg-gray-100 transition-colors"
                                 disabled={isSaving}
                             >
@@ -194,11 +212,12 @@ const DocumentView = ({documentId, onBack}) => {
                             </motion.button>
                             <motion.button
                                 onClick={() => handleSave(false)}
-                                className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-semibold shadow-lg hover:from-blue-600 transition-all"
+                                className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-xl font-semibold shadow-lg hover:from-blue-700 transition-all"
                                 whileTap={{scale: 0.98}}
                                 disabled={isSaving}
                             >
-                                {isSaving ? <RefreshCcw className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}
+                                {isSaving ? <RefreshCcw className="w-4 h-4 animate-spin"/> :
+                                    <Save className="w-4 h-4"/>}
                                 <span>Guardar Borrador</span>
                             </motion.button>
                         </>
@@ -215,7 +234,7 @@ const DocumentView = ({documentId, onBack}) => {
                                 </motion.button>
                             )}
 
-                            {/* Botón de Finalizar/Exportar */}
+                            {/* Botón de Finalizar/Aprobar */}
                             {!documentData.is_finalized ? (
                                 <motion.button
                                     onClick={() => handleSave(true)}
@@ -227,6 +246,7 @@ const DocumentView = ({documentId, onBack}) => {
                                     <span>Finalizar y Aprobar</span>
                                 </motion.button>
                             ) : (
+                                // Botón de Exportar (visible solo si está finalizado)
                                 <motion.button
                                     onClick={handleExport}
                                     className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-semibold transition-all ${documentData.is_synced ? 'bg-gray-400 text-white cursor-default' : 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 shadow-lg'}`}
