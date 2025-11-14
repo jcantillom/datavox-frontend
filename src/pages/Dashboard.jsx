@@ -255,9 +255,6 @@ const Dashboard = () => {
                             <h2 className="text-3xl font-extrabold mb-2 text-white">
                                 ¡{getGreeting()}, Dr. {user.full_name?.split(' ')[0] || 'Colega'}!
                             </h2>
-                            <p className="text-indigo-200 text-lg mb-4 leading-relaxed">
-                                **Optimice su jornada.** Su panel central de **DataVoxMedical** le ofrece métricas y accesos inmediatos.
-                            </p>
                             <div className="flex items-center space-x-4 text-sm">
                                 <div className="flex items-center space-x-2 bg-white/20 px-3 py-1.5 rounded-full border border-white/20">
                                     <Zap className="w-4 h-4 text-cyan-300"/>

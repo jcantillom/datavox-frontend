@@ -1,4 +1,3 @@
-// src/components/layout/Footer.jsx
 import React from 'react';
 import {motion} from 'framer-motion';
 import {Stethoscope, FileText, Shield, Mail, Phone, MapPin} from 'lucide-react';
