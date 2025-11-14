@@ -37,11 +37,13 @@ export const clinicalService = {
     },
 
     async listDocuments(filters = {}) {
-        const {q, document_type, page = 1, pageSize = 50} = filters;
+        // CAMBIO: pageSize por defecto a 5
+        const {q, document_type, page = 1, pageSize = 5} = filters;
         let url = `/documents?page=${page}&page_size=${pageSize}`;
         if (q) url += `&q=${encodeURIComponent(q)}`;
         if (document_type) url += `&document_type=${document_type}`;
 
+        // CAMBIO: El apiService.get devolverá { data: DocumentOut[], total: number }
         return await apiService.get(url);
     },
 

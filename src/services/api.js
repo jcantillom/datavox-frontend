@@ -64,7 +64,30 @@ class ApiService {
             return {success: true};
         }
 
-        return response.json();
+        const totalCountHeader = response.headers.get('X-Total-Count');
+
+        let data = await response.json();
+
+        // CORRECCIÓN DE SEGURIDAD:
+        // Si el header existe, usamos el valor del header.
+        if (totalCountHeader !== null) {
+            return {
+                data: data,
+                total: parseInt(totalCountHeader, 10)
+            };
+        }
+
+        // Si el header NO existe, pero la respuesta es un array (que indica un listado),
+        // asumimos que no se pudo leer el header y usamos el length del array como total temporal.
+        // Esto permite que el renderizado se complete aunque la paginación no se muestre correctamente.
+        if (Array.isArray(data)) {
+            return {
+                data: data,
+                total: data.length // Valor temporal para evitar undefined
+            };
+        }
+
+        return data;
     }
 
     clearAuth() {

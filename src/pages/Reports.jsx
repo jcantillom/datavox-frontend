@@ -6,6 +6,7 @@ import {
     Stethoscope, Pill, Download, MessageSquare, ClipboardList, RotateCcw
 } from 'lucide-react';
 import {clinicalService} from '../services/clinical';
+import PaginationControls from '../components/ui/PaginationControls';
 
 // Definición de tipos de documentos (para color y mapeo)
 const DOCUMENT_TYPES_MAP = {
@@ -16,12 +17,17 @@ const DOCUMENT_TYPES_MAP = {
     incapacity: {label: 'Incapacidad', color: 'red', icon: ClipboardList}
 };
 
+const PAGE_SIZE = 5; // Constante para tamaño de página
+
 const Reports = ({onViewDocument, notifications}) => { // Recibe notifications
     const [documents, setDocuments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState('');
+    // NUEVOS ESTADOS DE PAGINACIÓN
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalDocuments, setTotalDocuments] = useState(0);
 
     const { success, error: notifyError, info } = notifications;
 
@@ -29,10 +35,13 @@ const Reports = ({onViewDocument, notifications}) => { // Recibe notifications
     const isInitialMount = useRef(true);
 
     useEffect(() => {
-        // La primera carga (al montar el componente) NO debe notificar.
-        // Solo notifica si no es el primer montaje y los filtros han cambiado
-        loadDocuments(false);
+        // Al cambiar los filtros o el query, volvemos a la página 1.
+        setCurrentPage(1);
     }, [searchQuery, filterType]);
+
+    useEffect(() => {
+        loadDocuments(false); // Siempre recargamos al cambiar la página
+    }, [currentPage]);
 
     // Función modificada para controlar la notificación
     const loadDocuments = async (notifyOnComplete = true) => {
@@ -42,19 +51,26 @@ const Reports = ({onViewDocument, notifications}) => { // Recibe notifications
             const filters = {
                 q: searchQuery,
                 document_type: filterType,
+                page: currentPage, // USAR currentPage
+                pageSize: PAGE_SIZE, // USAR PAGE_SIZE
             };
-            const rows = await clinicalService.listDocuments(filters);
-            setDocuments(rows);
+            // CAMBIO: Obtiene { data, total }
+            const result = await clinicalService.listDocuments(filters);
+
+            // CORRECCIÓN CLAVE: Asignar el array de documentos de result.data
+            setDocuments(result.data || []);
+            setTotalDocuments(result.total || 0); // GUARDAR TOTAL
 
             // CORRECCIÓN: Solo notificar si la función fue llamada manualmente
             if (notifyOnComplete) {
-                info(`Listado de reportes actualizado. ${rows.length} documentos encontrados.`, 3000);
+                info(`Listado de reportes actualizado. ${result.total} documentos encontrados.`, 3000);
             }
         } catch (err) {
             console.error("Error cargando documentos:", err);
             setError("No se pudieron cargar los reportes clínicos.");
             notifyError("Error de conexión: No se pudieron cargar los reportes.", 8000);
             setDocuments([]);
+            setTotalDocuments(0); // Reiniciar en caso de error
         } finally {
             setLoading(false);
         }
@@ -62,9 +78,22 @@ const Reports = ({onViewDocument, notifications}) => { // Recibe notifications
 
     // Función que se llama con el botón "Aplicar Filtros" y "Actualizar"
     const handleManualLoad = () => {
-        // Llama a loadDocuments CON notificación
-        loadDocuments(true);
+        // Si no está en página 1, ir a página 1 (que disparará el useEffect con notificación)
+        if (currentPage !== 1) {
+            setCurrentPage(1);
+        } else {
+            // Si ya está en página 1, cargar con notificación
+            loadDocuments(true);
+        }
     }
+
+    const totalPages = Math.ceil(totalDocuments / PAGE_SIZE);
+
+    const handlePageChange = (page) => {
+        if (page >= 1 && page <= totalPages) {
+            setCurrentPage(page);
+        }
+    };
 
     // Función para simular exportar (llama a la nueva API /documents/{id}/export)
     const handleExportToHis = async (docId, title) => {
@@ -88,6 +117,9 @@ const Reports = ({onViewDocument, notifications}) => { // Recibe notifications
         value: key,
         label: val.label,
     }));
+
+    // CORRECCIÓN DE LA LÍNEA 175 (ya que ahora 'documents' es el array)
+    // Se mantiene el renderizado normal.
 
     return (
         <motion.div
@@ -151,6 +183,7 @@ const Reports = ({onViewDocument, notifications}) => { // Recibe notifications
                 </div>
             ) : (
                 <div className="space-y-4">
+                    {/* Tarjetas de Documentos (Solo 5 por página) */}
                     {documents.map((doc) => {
                         const typeConfig = DOCUMENT_TYPES_MAP[doc.document_type] || DOCUMENT_TYPES_MAP.clinical_history;
                         const DocIcon = typeConfig.icon;
@@ -219,6 +252,15 @@ const Reports = ({onViewDocument, notifications}) => { // Recibe notifications
                         );
                     })}
                 </div>
+            )}
+
+            {/* Componente de Paginación */}
+            {!loading && totalPages > 1 && (
+                <PaginationControls
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={handlePageChange}
+                />
             )}
         </motion.div>
     );

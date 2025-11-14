@@ -3,6 +3,7 @@ import React, {useState, useEffect} from 'react';
 import {motion} from 'framer-motion';
 import {Users, Calendar, FileText, Search, UserCheck, Stethoscope, RotateCcw, AlertCircle} from 'lucide-react';
 import {patientService} from '../services/patients'; // Importar servicio real
+import PaginationControls from '../components/ui/PaginationControls';
 
 const PatientCard = ({name, id, identifier, created_at, is_active}) => {
     const statusText = is_active ? 'Activo' : 'Inactivo';
@@ -41,32 +42,72 @@ const PatientCard = ({name, id, identifier, created_at, is_active}) => {
     );
 };
 
-const Patients = () => {
+const PAGE_SIZE = 5; // Constante para tamaño de página
+
+const Patients = ({notifications}) => { // Recibe notifications
     const [patients, setPatients] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
+    // NUEVOS ESTADOS DE PAGINACIÓN
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPatients, setTotalPatients] = useState(0);
+
+    const { error: notifyError, info } = notifications;
 
     useEffect(() => {
-        loadPatients();
+        // Al cambiar el query de búsqueda, volvemos a la página 1.
+        setCurrentPage(1);
     }, [searchQuery]);
 
-    const loadPatients = async () => {
+    useEffect(() => {
+        loadPatients(false); // Siempre recargamos al cambiar la página
+    }, [currentPage]);
+
+
+    const loadPatients = async (notifyOnComplete = true) => {
         setLoading(true);
         setError(null);
         try {
-            // Llamada al servicio real (query se usa para buscar por nombre/ID)
-            const rows = await patientService.searchPatients(searchQuery);
-            setPatients(rows);
+            // CAMBIO: Pasa la página y obtiene { data, total }
+            const result = await patientService.searchPatients(searchQuery, currentPage, PAGE_SIZE);
+
+            // CORRECCIÓN CLAVE: Asignar el array de pacientes de result.data
+            setPatients(result.data || []);
+            setTotalPatients(result.total || 0); // GUARDAR TOTAL
+
+            if (notifyOnComplete) {
+                info(`Listado de pacientes actualizado. ${result.total} pacientes encontrados.`, 3000);
+            }
+
         } catch (err) {
             console.error("Error cargando pacientes:", err);
             // Mensaje de error general para el usuario
             setError(err.message || "No se pudieron cargar los pacientes activos.");
+            notifyError("Error de conexión: No se pudieron cargar los pacientes.", 8000);
             setPatients([]);
+            setTotalPatients(0); // Reiniciar en caso de error
         } finally {
             setLoading(false);
         }
     };
+
+    const handleManualLoad = () => {
+        if (currentPage !== 1) {
+            setCurrentPage(1);
+        } else {
+            loadPatients(true);
+        }
+    }
+
+    const totalPages = Math.ceil(totalPatients / PAGE_SIZE);
+
+    const handlePageChange = (page) => {
+        if (page >= 1 && page <= totalPages) {
+            setCurrentPage(page);
+        }
+    };
+
 
     return (
         <motion.div
@@ -97,7 +138,7 @@ const Patients = () => {
                     />
                 </div>
                 <motion.button
-                    onClick={loadPatients}
+                    onClick={handleManualLoad}
                     className="py-2.5 bg-gradient-to-r from-emerald-600 to-green-500 text-white rounded-xl font-semibold shadow-md hover:from-emerald-500 hover:to-green-400 transition-all"
                     whileTap={{scale: 0.98}}
                 >
@@ -132,7 +173,8 @@ const Patients = () => {
                 </div>
             ) : (
                 <div className="space-y-4">
-                    <h3 className="text-xl font-bold text-gray-900">Pacientes Recientes ({patients.length})</h3>
+                    <h3 className="text-xl font-bold text-gray-900">Pacientes Recientes ({totalPatients})</h3>
+                    {/* Tarjetas de Pacientes (Solo 5 por página) */}
                     {patients.map((patient) => (
                         <PatientCard
                             key={patient.id}
@@ -145,6 +187,16 @@ const Patients = () => {
                     ))}
                 </div>
             )}
+
+            {/* Componente de Paginación */}
+            {!loading && totalPages > 1 && (
+                <PaginationControls
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={handlePageChange}
+                />
+            )}
+
         </motion.div>
     );
 };

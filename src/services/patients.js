@@ -7,14 +7,15 @@ export const patientService = {
      * @param {string} query - Nombre, ID o Cédula del paciente.
      * @param {number} page
      * @param {number} pageSize
-     * @returns {Promise<PatientOut[]>}
+     * @returns {Promise<{data: PatientOut[], total: number}>}
      */
-    async searchPatients(query = '', page = 1, pageSize = 50) {
+    async searchPatients(query = '', page = 1, pageSize = 5) { // CAMBIO: pageSize por defecto a 5
         let url = `/patients?page=${page}&page_size=${pageSize}`;
         if (query) {
             url += `&q=${encodeURIComponent(query)}`;
         }
         // Llamada real al backend
+        // CAMBIO: El apiService.get devolverá { data: PatientOut[], total: number }
         return await apiService.get(url);
     },
 
