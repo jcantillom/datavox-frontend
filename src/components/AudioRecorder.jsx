@@ -1,3 +1,4 @@
+// src/components/AudioRecorder.jsx
 import React, {useState, useRef, useEffect} from 'react';
 import {motion, AnimatePresence} from 'framer-motion';
 import {
@@ -5,7 +6,7 @@ import {
     AlertCircle, FileText, Copy, Edit3, Download, Stethoscope,
     Pill, User, Calendar, Clock, FileDown, Radiation, X,
     Shield, Brain, Database, Cloud, Sparkles, FileCheck,
-    RotateCcw, FileSignature, ClipboardList, Save
+    RotateCcw, FileSignature, ClipboardList, Save, Scan, Building
 } from 'lucide-react';
 import {storageService} from '../services/storage';
 import {recordingService} from '../services/recordings';
@@ -29,7 +30,7 @@ const DOCUMENT_TYPES_CONFIG = {
         value: 'radiology_report',
         label: 'Informe Radiológico',
         description: 'Reporte de estudios de imagen',
-        icon: Radiation,
+        icon: Radiation, // REGLA: Usar Radiation para radiológico
         color: 'amber',
         gradient: 'from-amber-500 to-orange-500',
         lightGradient: 'from-amber-50 to-amber-50',
@@ -75,6 +76,118 @@ const DOCUMENT_TYPES_CONFIG = {
     }
 };
 
+
+// -------------------------------------------------------------------
+// Componente Modal de Contexto Clínico (NUEVO)
+// -------------------------------------------------------------------
+
+const ClinicalContextModal = ({docType, docConfig, onConfirm, onCancel}) => {
+    const [patientId, setPatientId] = useState('');
+    const [subject, setSubject] = useState('');
+    const [error, setError] = useState('');
+
+    const handleConfirm = () => {
+        if (!patientId.trim() || !subject.trim()) {
+            setError('Debe ingresar un identificador de paciente y el foco clínico.');
+            return;
+        }
+        onConfirm({patientId, subject});
+    };
+
+    return (
+        <motion.div
+            initial={{opacity: 0}}
+            animate={{opacity: 1}}
+            exit={{opacity: 0}}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        >
+            <motion.div
+                initial={{scale: 0.9, opacity: 0, y: 20}}
+                animate={{scale: 1, opacity: 1, y: 0}}
+                exit={{scale: 0.9, opacity: 0, y: 20}}
+                className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-8 max-w-lg w-full shadow-2xl border border-gray-200/50"
+            >
+                <div className="flex items-center space-x-4 mb-6 pb-4 border-b border-gray-200">
+                    <div
+                        className={`w-12 h-12 rounded-xl bg-gradient-to-br ${docConfig.gradient} flex items-center justify-center shadow-lg`}>
+                        <docConfig.icon className="w-6 h-6 text-white"/>
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-bold text-gray-900">
+                            Contexto Clínico - {docConfig.label}
+                        </h3>
+                        <p className="text-sm text-gray-600">Asocie este dictado a un paciente y tema.</p>
+                    </div>
+                </div>
+
+                {error && (
+                    <p className="mb-4 p-3 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm flex items-center">
+                        <AlertCircle className="w-4 h-4 mr-2"/>
+                        {error}
+                    </p>
+                )}
+
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Identificador de Paciente (Cédula/Historia) *
+                        </label>
+                        <input
+                            type="text"
+                            value={patientId}
+                            onChange={(e) => {
+                                setPatientId(e.target.value);
+                                setError('');
+                            }}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900"
+                            placeholder="Ej: HC-123456 / Juan Pérez"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Foco Clínico del Dictado (Asunto) *
+                        </label>
+                        <input
+                            type="text"
+                            value={subject}
+                            onChange={(e) => {
+                                setSubject(e.target.value);
+                                setError('');
+                            }}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900"
+                            placeholder="Ej: Hallazgos de TAC abdominal / Evolución post-operatoria"
+                            required
+                        />
+                    </div>
+                </div>
+
+                <div className="flex space-x-3 justify-end mt-6">
+                    <button
+                        onClick={onCancel}
+                        className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-all duration-200 font-semibold rounded-lg hover:bg-gray-100 text-sm"
+                    >
+                        Cancelar
+                    </button>
+                    <motion.button
+                        onClick={handleConfirm}
+                        className={`flex items-center space-x-2 px-6 py-2 bg-gradient-to-r ${docConfig.gradient} hover:brightness-110 text-white rounded-xl font-bold shadow-lg ${docConfig.shadow} transition-all duration-300`}
+                        whileTap={{scale: 0.98}}
+                    >
+                        <Mic className="w-4 h-4"/>
+                        <span>Iniciar Grabación</span>
+                    </motion.button>
+                </div>
+            </motion.div>
+        </motion.div>
+    );
+};
+
+
+// -------------------------------------------------------------------
+// Componente AudioRecorder Principal
+// -------------------------------------------------------------------
+
 const AudioRecorder = () => {
     const [recordingState, setRecordingState] = useState('idle');
     const [recordedAudio, setRecordedAudio] = useState(null);
@@ -84,8 +197,8 @@ const AudioRecorder = () => {
     const [uploadStatus, setUploadStatus] = useState('');
     const [statusMessage, setStatusMessage] = useState('');
     const [documentType, setDocumentType] = useState('clinical_history');
-    const [documentMetadata, setDocumentMetadata] = useState({});
-    const [generatedDocument, setGeneratedDocument] = useState(null);
+    const [documentMetadata, setDocumentMetadata] = useState({}); // {patientId, subject, ...}
+    const [generatedDocument, setGeneratedDocument] = useState(null); // {document_id, content, ...}
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [processingSteps, setProcessingSteps] = useState([]);
     const [currentStep, setCurrentStep] = useState(null);
@@ -93,6 +206,13 @@ const AudioRecorder = () => {
     const [showNewDictationOptions, setShowNewDictationOptions] = useState(false);
     const [isEditingDocument, setIsEditingDocument] = useState(false);
     const [editedDocumentContent, setEditedDocumentContent] = useState('');
+
+    const [recordingId, setRecordingId] = useState(null);
+    const [documentId, setDocumentId] = useState(null);
+
+    // NUEVO ESTADO: Controla la aparición del modal de metadatos
+    const [showContextModal, setShowContextModal] = useState(false);
+
 
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
@@ -274,7 +394,11 @@ const AudioRecorder = () => {
         }
     };
 
-    const startRecording = async () => {
+    // NUEVA FUNCIÓN: Inicia la grabación DESPUÉS de obtener el contexto
+    const initiateRecordingAfterContext = async (context) => {
+        setShowContextModal(false);
+        setDocumentMetadata(context);
+
         if (recordingState === 'completed') {
             handleNewDictation();
             await new Promise(resolve => setTimeout(resolve, 100));
@@ -297,6 +421,19 @@ const AudioRecorder = () => {
             showStatus('info', 'Grabando dictado médico...');
         }
     };
+
+    // FUNCIÓN MODIFICADA: Ahora abre el modal o llama a la función de inicio si no es 'idle'
+    const startRecording = async () => {
+        if (recordingState === 'idle') {
+            // Si está en idle, mostrar modal de contexto
+            setShowContextModal(true);
+        } else if (recordingState === 'completed') {
+            // Si está en completed, iniciar flujo de nuevo dictado
+            handleNewDictation();
+        }
+        // Si está en recorded, se espera que el usuario presione el botón de Procesar
+    };
+
 
     const togglePause = () => {
         if (mediaRecorderRef.current) {
@@ -356,6 +493,10 @@ const AudioRecorder = () => {
         setIsEditingDocument(false);
         setEditedDocumentContent('');
 
+        setRecordingId(null);
+        setDocumentId(null);
+        setDocumentMetadata({}); // Limpiar metadatos
+
         cleanupResources();
 
         if (audioRef.current) {
@@ -392,14 +533,28 @@ const AudioRecorder = () => {
         }
     };
 
-    const handleSaveEditedDocument = () => {
-        if (generatedDocument) {
-            setGeneratedDocument({
-                ...generatedDocument,
-                content: editedDocumentContent
-            });
+    const handleSaveEditedDocument = async () => {
+        if (!documentId) {
+            showStatus('error', 'Error: ID de documento no encontrado.');
+            return;
+        }
+
+        try {
+            const updateResult = await clinicalService.updateDocumentContent(
+                documentId,
+                editedDocumentContent,
+                false // Marca como no finalizado si se edita
+            );
+
+            setGeneratedDocument(prev => ({
+                ...prev,
+                content: updateResult.content,
+            }));
+
             setIsEditingDocument(false);
-            showStatus('success', 'Documento editado correctamente');
+            showStatus('success', 'Documento editado y guardado correctamente');
+        } catch (error) {
+            showStatus('error', error.message || 'Error al guardar los cambios');
         }
     };
 
@@ -417,7 +572,11 @@ const AudioRecorder = () => {
         setCurrentStep(null);
         setShowFinalSuccess(false);
 
+        let currentRecording = null;
+        let transcriptionResult = null;
+
         try {
+            // 1. UPLOADING
             updateProcessingStep('uploading', 'active');
             const presignResponse = await storageService.presignPut({
                 filename: `medical-dictation-${Date.now()}.webm`,
@@ -437,6 +596,7 @@ const AudioRecorder = () => {
             }
             updateProcessingStep('uploading', 'completed');
 
+            // 2. REGISTERING
             updateProcessingStep('registering', 'active');
             const recordingData = {
                 bucket: presignResponse.bucket,
@@ -446,30 +606,34 @@ const AudioRecorder = () => {
                 duration_sec: recordingTime
             };
 
-            const recording = await recordingService.createRecording(recordingData);
+            currentRecording = await recordingService.createRecording(recordingData);
+            setRecordingId(currentRecording.id); // Guardar ID
             updateProcessingStep('registering', 'completed');
 
+            // 3. TRANSCRIBING
             updateProcessingStep('transcribing', 'active');
-            await transcriptionService.startTranscription(recording.id);
+            await transcriptionService.startTranscription(currentRecording.id);
 
-            const result = await transcriptionService.pollTranscriptionStatus(recording.id);
+            transcriptionResult = await transcriptionService.pollTranscriptionStatus(currentRecording.id);
 
-            if (result.transcript_text) {
-                setTranscript(result.transcript_text);
-                updateProcessingStep('transcribing', 'completed');
-
-                updateProcessingStep('generating', 'active');
-                await generateMedicalDocument(result.transcript_text);
-                updateProcessingStep('generating', 'completed');
-
-                updateProcessingStep('completed', 'completed');
-
-                setRecordingState('completed');
-                setShowFinalSuccess(true);
-
-            } else {
+            if (!transcriptionResult.transcript_text) {
                 throw new Error('No se pudo obtener la transcripción');
             }
+
+            setTranscript(transcriptionResult.transcript_text);
+            updateProcessingStep('transcribing', 'completed');
+
+            // 4. GENERATING DOCUMENT
+            updateProcessingStep('generating', 'active');
+            // Pasar los metadatos de contexto capturados
+            await generateMedicalDocument(currentRecording.id, transcriptionResult.transcript_text);
+            updateProcessingStep('generating', 'completed');
+
+            // 5. COMPLETED
+            updateProcessingStep('completed', 'completed');
+
+            setRecordingState('completed');
+            setShowFinalSuccess(true);
 
         } catch (error) {
             console.error('Upload/transcription error:', error);
@@ -483,15 +647,19 @@ const AudioRecorder = () => {
         }
     };
 
-    const generateMedicalDocument = async (transcriptText) => {
+    const generateMedicalDocument = async (currentRecordingId, transcriptText) => {
         try {
+            // Metadatos base + metadatos capturados del modal
             const metadata = {
-                ...documentMetadata,
-                generated_at: new Date().toISOString(),
-                recording_duration: recordingTime
+                institution_name: localStorage.getItem('tenantCode'),
+                doctor_name: JSON.parse(localStorage.getItem('userInfo'))?.full_name || 'Dr. Médico',
+                recording_duration: recordingTime,
+                patient_id: documentMetadata.patientId || 'N/A', // Usar metadatos del estado
+                clinical_subject: documentMetadata.subject || 'N/A', // Usar metadatos del estado
             };
 
             const result = await clinicalService.generateMedicalDocument(
+                currentRecordingId,
                 documentType,
                 transcriptText,
                 metadata
@@ -499,6 +667,7 @@ const AudioRecorder = () => {
 
             if (result.success) {
                 setGeneratedDocument(result);
+                setDocumentId(result.document_id); // Guardar ID del documento
             } else {
                 throw new Error(result.error || 'Error generando documento');
             }
@@ -596,6 +765,20 @@ const AudioRecorder = () => {
     return (
         <div
             className="bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-200/50 p-6 shadow-xl shadow-blue-500/5">
+
+            {/* MODAL DE CONTEXTO CLÍNICO */}
+            <AnimatePresence>
+                {showContextModal && (
+                    <ClinicalContextModal
+                        docType={documentType}
+                        docConfig={currentDocConfig}
+                        onConfirm={initiateRecordingAfterContext}
+                        onCancel={() => setShowContextModal(false)}
+                    />
+                )}
+            </AnimatePresence>
+
+            {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
             <AnimatePresence>
                 {showDeleteConfirm && (
                     <motion.div
@@ -631,18 +814,19 @@ const AudioRecorder = () => {
                                 >
                                     Cancelar
                                 </button>
-                                <button
+                                <motion.button
                                     onClick={clearRecording}
                                     className="px-4 py-2 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white rounded-lg font-semibold transition-all duration-200 shadow-lg shadow-red-500/25 text-sm"
                                 >
                                     Eliminar Dictado
-                                </button>
+                                </motion.button>
                             </div>
                         </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
+            {/* MODAL DE NUEVO DICTADO */}
             <AnimatePresence>
                 {showNewDictationOptions && (
                     <motion.div
@@ -835,6 +1019,33 @@ const AudioRecorder = () => {
                 </motion.div>
             )}
 
+            {/* Mostrar metadatos capturados cuando no está en IDLE */}
+            {recordingState !== 'idle' && (
+                <motion.div
+                    initial={{opacity: 0}}
+                    animate={{opacity: 1}}
+                    className="mb-6 p-4 bg-gray-100/70 rounded-xl border border-gray-200 shadow-inner text-sm"
+                >
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2 text-gray-700">
+                            <User className="w-4 h-4 text-blue-500"/>
+                            <span className="font-semibold">Paciente:</span>
+                            <span className="font-medium">{documentMetadata.patientId || 'N/A'}</span>
+                        </div>
+                        <div className="flex items-center space-x-2 text-gray-700">
+                            <FileText className="w-4 h-4 text-purple-500"/>
+                            <span className="font-semibold">Foco:</span>
+                            <span className="font-medium">{documentMetadata.subject || 'N/A'}</span>
+                        </div>
+                        <div className="flex items-center space-x-2 text-gray-700">
+                            <Building className="w-4 h-4 text-emerald-500"/>
+                            <span className="font-semibold">Tipo:</span>
+                            <span className="font-medium">{currentDocConfig.label}</span>
+                        </div>
+                    </div>
+                </motion.div>
+            )}
+
             {recordingState === 'idle' && (
                 <motion.div
                     initial={{opacity: 0, y: 20}}
@@ -921,7 +1132,7 @@ const AudioRecorder = () => {
                         <div className="flex justify-center space-x-4">
                             {recordingState === 'idle' ? (
                                 <motion.button
-                                    onClick={startRecording}
+                                    onClick={startRecording} // Ahora abre el modal
                                     className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white rounded-xl font-bold text-base shadow-xl shadow-red-500/25 transition-all duration-300 group"
                                     whileHover={{scale: 1.03, shadow: "0 15px 30px -8px rgba(239, 68, 68, 0.3)"}}
                                     whileTap={{scale: 0.97}}
@@ -1107,6 +1318,7 @@ const AudioRecorder = () => {
                                                 Documento Médico - {currentDocConfig.label}
                                             </span>
                                         </div>
+                                        {/* Botón de Editar siempre visible si no estamos editando */}
                                         {!isEditingDocument && (
                                             <motion.button
                                                 onClick={handleEditDocument}

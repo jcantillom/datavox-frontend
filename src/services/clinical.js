@@ -1,116 +1,70 @@
+// src/services/clinical.js
 import {apiService} from './api';
 
 export const clinicalService = {
     // Generación de documentos médicos
-    async generateMedicalDocument(documentType, transcript, metadata) {
+    async generateMedicalDocument(recordingId, documentType, transcript, metadata) {
         try {
-            // Simular generación de documento hasta que el backend esté listo
-            const documentTemplates = {
-                clinical_history: `
-HISTORIA CLÍNICA
-
-INSTITUCIÓN: ${metadata.institution_name || 'Centro Médico'}
-MÉDICO: ${metadata.doctor_name || 'Dr. Médico'}
-FECHA: ${new Date().toLocaleDateString()}
-
-MOTIVO DE CONSULTA:
-${transcript}
-
-DIAGNÓSTICO:
-Diagnóstico establecido según hallazgos clínicos.
-
-TRATAMIENTO:
-Plan de tratamiento según protocolo establecido.
-
-OBSERVACIONES:
-Paciente en observación. Seguimiento según evolución.
-
-FIRMA: ___________________
-${metadata.doctor_name || 'Dr. Médico'}
-${metadata.doctor_license || 'LM-00000'}
-                `,
-                radiology_report: `
-INFORME RADIOLÓGICO
-
-INSTITUCIÓN: ${metadata.institution_name || 'Centro Radiológico'}
-PACIENTE: ${metadata.patient_name || 'Paciente'}
-FECHA: ${new Date().toLocaleDateString()}
-
-ESTUDIO: ${metadata.study_type || 'Radiografía'}
-
-HALLAZGOS:
-${transcript}
-
-IMPRESIÓN DIAGNÓSTICA:
-Hallazgos radiológicos descritos en el estudio.
-
-RECOMENDACIONES:
-Seguimiento según criterio médico.
-
-RADIÓLOGO: ${metadata.radiologist_name || 'Dr. Radiólogo'}
-FIRMA: ___________________
-                `,
-                medical_prescription: `
-FORMULA MÉDICA
-
-INSTITUCIÓN: ${metadata.institution_name || 'Centro Médico'}
-MÉDICO: ${metadata.doctor_name || 'Dr. Médico'}
-PACIENTE: ${metadata.patient_name || 'Paciente'}
-FECHA: ${new Date().toLocaleDateString()}
-
-MEDICAMENTOS:
-${transcript}
-
-INDICACIONES:
-Seguir tratamiento según indicaciones médicas.
-
-FIRMA: ___________________
-${metadata.doctor_name || 'Dr. Médico'}
-${metadata.doctor_license || 'LM-00000'}
-                `
+            const payload = {
+                recording_id: recordingId,
+                document_type: documentType,
+                transcript: transcript,
+                clinical_meta: metadata, // metadata incluye patient_id, clinical_subject, doctor_name, etc.
             };
 
-            const content = documentTemplates[documentType] || transcript;
+            const response = await apiService.post('/documents/generate', payload);
 
+            // Estructura de respuesta adaptada a lo que espera AudioRecorder
             return {
                 success: true,
-                document_type: documentType,
-                content: content,
-                metadata: metadata,
-                generated_at: new Date().toISOString()
+                document_type: response.document_type,
+                content: response.content,
+                document_id: response.id, // ID del documento creado
+                generated_at: response.created_at
             };
 
         } catch (error) {
             console.error('Error generating medical document:', error);
-            return {
-                success: false,
-                error: error.message,
-                document_type: documentType
-            };
+            throw new Error(error.message || 'Error desconocido al generar documento');
         }
     },
 
-    // Tipos de documentos médicos soportados
-    getDocumentTypes() {
-        return [
-            {
-                value: 'clinical_history',
-                label: 'Historia Clínica',
-                description: 'Documento completo de historia clínica',
-                icon: 'file-medical'
-            },
-            {
-                value: 'radiology_report',
-                label: 'Informe Radiológico',
-                description: 'Reporte de estudios de imagen',
-                icon: 'scan'
-            },
-            {
-                value: 'medical_prescription',
-                label: 'Formula Médica',
-                description: 'Prescripción de medicamentos',
-                icon: 'prescription'
-            }
-        ];
-    }
+    // -----------------------------------------------------
+    // SERVICIOS PARA REPORTES/GESTOR
+    // -----------------------------------------------------
+    async getDocumentById(documentId) {
+        return await apiService.get(`/documents/${documentId}`);
+    },
+
+    async listDocuments(filters = {}) {
+        const {q, document_type, page = 1, pageSize = 50} = filters;
+        let url = `/documents?page=${page}&page_size=${pageSize}`;
+        if (q) url += `&q=${encodeURIComponent(q)}`;
+        if (document_type) url += `&document_type=${document_type}`;
+
+        return await apiService.get(url);
+    },
+
+    async updateDocumentContent(documentId, content, isFinalized = false) {
+        try {
+            const payload = {
+                content: content,
+                is_finalized: isFinalized,
+                is_synced: false // Al editar, asumimos que no está sincronizado
+            };
+
+            const response = await apiService.put(`/documents/${documentId}/content`, payload);
+
+            return response; // Devuelve el objeto DocumentOut completo
+
+        } catch (error) {
+            console.error('Error updating medical document content:', error);
+            throw new Error(error.message || 'Error al guardar los cambios del documento');
+        }
+    },
+
+    async exportDocument(documentId) {
+        // Llama al endpoint de exportación asíncrona (202 Accepted)
+        return await apiService.post(`/documents/${documentId}/export`);
+    },
 };

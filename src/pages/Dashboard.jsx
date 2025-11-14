@@ -1,5 +1,5 @@
 // src/pages/Dashboard.jsx - VERSIÓN ULTRA-MODERNA (SOFT UI / LIGHT GLASSMORHPISM)
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useRef} from 'react'; // <-- Aseguramos useRef
 import {motion} from 'framer-motion';
 import {
     Stethoscope, FileText, Users, Activity, LogOut, Mic, Calendar, Download, Settings, Bell,
@@ -7,11 +7,19 @@ import {
     BarChart3, MessageSquare, ShieldCheck, Grid, TrendingDown
 } from 'lucide-react';
 import {authService} from '../services/auth';
-import AudioRecorder from '../components/AudioRecorder'; // Asumo que este componente existe.
+import {dashboardService} from '../services/dashboard';
+import AudioRecorder from '../components/AudioRecorder';
+import Reports from './Reports';
+import Patients from './Patients';
+import Schedule from './Schedule';
+import DocumentView from './DocumentView';
+// NUEVOS HOOKS Y COMPONENTES
+import useNotification from '../hooks/useNotification';
+import NotificationToast from '../components/ui/NotificationToast';
+
 
 // --- Componentes Reutilizables de Estilo ---
-
-// Función para obtener clases de gradiente y colores para el tema Claro
+// (getGradientClasses, NavItem - Se mantienen intactos)
 const getGradientClasses = (color) => {
     switch (color) {
         case 'blue': return {bg: 'from-sky-500 to-indigo-500', text: 'text-sky-600', hoverBg: 'from-sky-500/10 to-indigo-500/10', lightBg: 'bg-sky-50/70'};
@@ -48,38 +56,46 @@ const NavItem = ({icon: Icon, label, active, onClick, color}) => {
         </motion.button>
     );
 };
+// --- FIN Componentes Reutilizables de Estilo ---
+
 
 // --- Dashboard Component ---
-
 const Dashboard = () => {
     const [user, setUser] = useState(null);
     const [activeSection, setActiveSection] = useState('overview');
     const [currentTime, setCurrentTime] = useState(new Date());
+    const [documentViewId, setDocumentViewId] = useState(null);
 
-    // Datos de Estadísticas - Manteniendo los degradados vibrantes para el contraste
-    const [stats] = useState([
-        {icon: FileText, label: 'Docs. Generados', value: '1,234', change: '+12%', trend: 'up', color: 'blue', gradient: 'from-sky-500 to-indigo-500', lightGradient: 'from-sky-100/60 to-indigo-100/60', description: 'Este mes'},
-        {icon: Users, label: 'Pacientes Activos', value: '892', change: '+8%', trend: 'up', color: 'emerald', gradient: 'from-emerald-500 to-green-500', lightGradient: 'from-emerald-100/60 to-green-100/60', description: 'Última semana'},
-        {icon: Clock, label: 'Tiempo Ahorrado', value: '45h', change: '+23%', trend: 'up', color: 'amber', gradient: 'from-amber-500 to-orange-500', lightGradient: 'from-amber-100/60 to-orange-100/60', description: 'vs. mes anterior'},
-        {icon: Mic, label: 'Dictados Procesados', value: '567', change: '+15%', trend: 'up', color: 'purple', gradient: 'from-purple-500 to-indigo-500', lightGradient: 'from-purple-100/60 to-indigo-100/60', description: 'Total activo'},
+    // CORRECCIÓN: Desestructurar TODAS las funciones del hook de notificaciones
+    const { notifications, removeNotification, error, success, system, info, ai, warning } = useNotification();
+
+    // NUEVO: Bandera para controlar la primera carga del Dashboard
+    const isInitialMount = useRef(true);
+
+
+    // Datos de Estadísticas - Ahora realimenta de loadDashboardMetrics
+    const [stats, setStats] = useState([
+        {icon: FileText, label: 'Docs. Generados', value: '0', change: '0%', trend: 'up', color: 'blue', gradient: 'from-sky-500 to-indigo-500', lightGradient: 'from-sky-100/60 to-indigo-100/60', description: 'Cargando...'},
+        {icon: Users, label: 'Pacientes Activos', value: '0', change: '0%', trend: 'up', color: 'emerald', gradient: 'from-emerald-500 to-green-500', lightGradient: 'from-emerald-100/60 to-green-100/60', description: 'Cargando...'},
+        {icon: Clock, label: 'Tiempo Ahorrado', value: '0h', change: '0%', trend: 'up', color: 'amber', gradient: 'from-amber-500 to-orange-500', lightGradient: 'from-amber-100/60 to-orange-100/60', description: 'Cargando...'},
+        {icon: Mic, label: 'Dictados Procesados', value: '0', change: '0%', trend: 'up', color: 'purple', gradient: 'from-purple-500 to-indigo-500', lightGradient: 'from-purple-100/60 to-indigo-100/60', description: 'Cargando...'},
     ]);
 
-    const recentActivities = [
-        {action: 'Historia clínica completada - Dr. Pérez', time: 'Hace 2 min', status: 'success'},
-        {action: 'Informe radiológico generado - Dra. García', time: 'Hace 5 min', status: 'info'},
-        {action: 'Backup del sistema realizado', time: 'Hace 1 hora', status: 'warning'},
-        {action: 'Nuevo usuario agregado - Dr. Rodríguez', time: 'Hace 2 horas', status: 'success'},
-    ];
+    const [recentActivities, setRecentActivities] = useState([]);
+    const [dailyMetricsStatus, setDailyMetricsStatus] = useState("Sistema operando al 100%");
+
 
     const quickActions = [
         {title: 'Nuevo Dictado', description: 'Iniciar grabación médica', icon: Mic, color: 'red', action: () => setActiveSection('recordings')},
-        {title: 'Informe Radiológico', description: 'Generar con membrete', icon: Scan, color: 'amber', action: () => console.log('Generar informe')},
-        {title: 'Agenda Médica', description: 'Ver pacientes programados', icon: Calendar, color: 'blue', action: () => console.log('Ver agenda')},
-        {title: 'Mensajería Segura', description: 'Comunicación interna y externa', icon: MessageSquare, color: 'emerald', action: () => console.log('Ver mensajes')},
+        {title: 'Reportes Clínicos', description: 'Ver historiales y reportes', icon: FileText, color: 'amber', action: () => setActiveSection('reports')},
+        {title: 'Gestión de Pacientes', description: 'Ver pacientes programados', icon: Users, color: 'emerald', action: () => setActiveSection('patients')},
+        {title: 'Agenda Médica', description: 'Ver citas diarias', icon: Calendar, color: 'blue', action: () => setActiveSection('schedule')},
     ];
 
     useEffect(() => {
         loadUserData();
+        loadDashboardMetrics();
+        isInitialMount.current = false; // El montaje inicial ha terminado
         const timer = setInterval(() => setCurrentTime(new Date()), 60000);
         return () => clearInterval(timer);
     }, []);
@@ -94,9 +110,68 @@ const Dashboard = () => {
                 role: mockUser.role || 'Especialista',
                 initials: (mockUser.full_name || 'DM').split(' ').map(n => n[0]).join('').toUpperCase()
             });
-        } catch (error) {
-            console.error('Error loading user data:', error);
+        } catch (err) {
+            console.error('Error loading user data:', err);
+            error('Error al cargar datos de usuario. Intente reconectar.', 8000);
             setUser({ full_name: 'Usuario Invitado', role: 'Visitante', initials: 'UI' });
+        }
+    };
+
+    const loadDashboardMetrics = async () => {
+        try {
+            const apiMetrics = await dashboardService.getMetrics();
+
+            const mapMetric = (statConfig, apiData) => {
+                const trendStr = apiData.trend;
+                const trend = trendStr.startsWith('+') ? 'up' : (trendStr.startsWith('-') ? 'down' : 'up');
+
+                return {
+                    ...statConfig,
+                    value: apiData.count.toLocaleString('es-ES'),
+                    change: trendStr,
+                    trend: trend,
+                    description: apiData.description,
+                };
+            };
+
+            setStats(prevStats => [
+                mapMetric(prevStats[0], apiMetrics.documents_generated),
+                mapMetric(prevStats[1], apiMetrics.patients_served),
+                mapMetric(prevStats[2], apiMetrics.time_saved),
+                mapMetric(prevStats[3], apiMetrics.recordings_processed),
+            ]);
+
+            const pendingRevisionDesc = apiMetrics.recordings_processed.description;
+            const todayDocsCount = apiMetrics.documents_generated.count;
+
+            setDailyMetricsStatus(`Actividad: ${todayDocsCount} docs. hoy. ${pendingRevisionDesc}`);
+
+            setRecentActivities([
+                {action: `Documentos generados hoy: ${todayDocsCount} informes.`, time: 'Ahora', status: 'success'},
+                {action: `Dictados pendientes de revisar: ${pendingRevisionDesc.split(' ')[0]}`, time: 'Ahora', status: 'warning'},
+            ]);
+
+            // CORRECCIÓN: Solo notificar si NO es la carga inicial
+            if (!isInitialMount.current) {
+                system('Métricas actualizadas. Sistema Estable.', 3000);
+            }
+
+        } catch (err) {
+            console.error('Error loading dashboard metrics:', err);
+            // CORRECCIÓN: Solo notificar si NO es la carga inicial
+            if (!isInitialMount.current) {
+                error('No se pudo conectar al sistema de métricas. Intente más tarde.', 8000);
+            }
+
+            setStats(prevStats => prevStats.map(stat => ({
+                ...stat,
+                value: 'Error',
+                change: 'N/A',
+                trend: 'down',
+                description: 'Error al cargar datos'
+            })));
+            setDailyMetricsStatus("Error: Conexión de métricas fallida.");
+            setRecentActivities([]);
         }
     };
 
@@ -112,19 +187,247 @@ const Dashboard = () => {
         return 'Buenas noches';
     };
 
-    const getDailyMetrics = () => {
-        const metrics = [
-            '5 dictados pendientes de revisión',
-            '12 documentos generados hoy',
-            '3 informes radiológicos completados',
-            '98% de precisión en transcripciones',
-            'Sistema operando al 100%'
-        ];
-        return metrics[Math.floor(Math.random() * metrics.length)];
+    // Función para manejar la vista del documento
+    const handleViewDocument = (id) => {
+        setDocumentViewId(id);
+        setActiveSection('reports');
     };
 
+    const handleBackToReports = () => {
+        setDocumentViewId(null);
+    };
+
+
+    const renderContent = () => {
+        // Objeto de notificaciones para pasar a los hijos
+        const childNotifications = { error, success, info, ai, warning };
+
+        // PRIORIDAD 1: Si hay un ID de documento, mostrar la vista individual
+        if (documentViewId) {
+            return <DocumentView documentId={documentViewId} onBack={handleBackToReports} notifications={childNotifications} />;
+        }
+
+        // PRIORIDAD 2: Mostrar la sección normal
+        switch (activeSection) {
+            case 'overview':
+                return renderOverview();
+            case 'recordings':
+                return <motion.div
+                    initial={{opacity: 0, y: 20}}
+                    animate={{opacity: 1, y: 0}}
+                    transition={{duration: 0.6}}
+                    className="p-6 bg-white/70 backdrop-blur-xl rounded-3xl shadow-2xl border border-gray-200/50"
+                >
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6">🎙️ Sistema de Grabación y Transcripción Inteligente</h2>
+                    {/* Pasamos notificaciones al AudioRecorder */}
+                    <AudioRecorder notifications={childNotifications} />
+                    <div className="mt-8 p-4 bg-blue-50/50 rounded-xl flex items-center space-x-3 border border-blue-200/50">
+                        <Brain className="w-5 h-5 text-indigo-600"/>
+                        <p className="text-sm text-gray-700 font-medium">Las grabaciones se procesan con **Inteligencia Artificial** para una transcripción y estructuración automática de informes clínicos.</p>
+                    </div>
+                </motion.div>;
+            case 'patients':
+                // Pasamos notificaciones a Patients
+                return <Patients notifications={childNotifications} />;
+            case 'reports':
+                // Si la sección es reports pero documentViewId es null, muestra la lista.
+                // Pasamos la función de vista y las notificaciones a Reports
+                return <Reports onViewDocument={handleViewDocument} notifications={childNotifications} />;
+            case 'schedule':
+                // Pasamos notificaciones a Schedule
+                return <Schedule notifications={childNotifications} />;
+            default:
+                return renderOverview();
+        }
+    };
+
+    const renderOverview = () => (
+        <motion.div
+            initial={{opacity: 0, y: 30}}
+            animate={{opacity: 1, y: 0}}
+            transition={{duration: 0.7, ease: "easeOut"}}
+            className="space-y-8"
+        >
+            {/* Welcome Section - Banner */}
+            <motion.div
+                className="relative overflow-hidden rounded-3xl"
+                initial={{y: 20}}
+                animate={{y: 0}}
+                transition={{type: "spring", stiffness: 100, delay: 0.1}}
+            >
+                <div className="p-8 bg-gradient-to-r from-indigo-600 to-cyan-600 text-white shadow-2xl shadow-indigo-500/50">
+                    {/* Patrón de Fondo Abstracto */}
+                    <div className="absolute inset-0 opacity-[0.05] bg-repeat" style={{backgroundImage: `radial-gradient(circle at 10% 10%, white 1px, transparent 0)`, backgroundSize: '30px 30px'}}></div>
+
+                    <div className="relative z-10 flex items-center justify-between">
+                        <div>
+                            <h2 className="text-3xl font-extrabold mb-2 text-white">
+                                ¡{getGreeting()}, Dr. {user.full_name?.split(' ')[0] || 'Colega'}!
+                            </h2>
+                            <p className="text-indigo-200 text-lg mb-4 leading-relaxed">
+                                **Optimice su jornada.** Su panel central de **DataVoxMedical** le ofrece métricas y accesos inmediatos.
+                            </p>
+                            <div className="flex items-center space-x-4 text-sm">
+                                <div className="flex items-center space-x-2 bg-white/20 px-3 py-1.5 rounded-full border border-white/20">
+                                    <Zap className="w-4 h-4 text-cyan-300"/>
+                                    <span className="font-semibold text-cyan-200">Rendimiento Máximo</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex-shrink-0">
+                            <HeartPulse className="w-16 h-16 text-white/50"/>
+                        </div>
+                    </div>
+                </div>
+            </motion.div>
+
+            {/* Stats Grid - Soft UI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {stats.map((stat, index) => {
+                    const {bg} = getGradientClasses(stat.color);
+                    const TrendIcon = stat.trend === 'up' ? TrendingUp : TrendingDown;
+                    // Determinar color basado en trend
+                    const trendColor = stat.trend === 'up' ? 'text-emerald-500' : (stat.trend === 'down' ? 'text-red-500' : 'text-gray-500');
+
+                    return (
+                        <motion.div
+                            key={stat.label}
+                            initial={{opacity: 0, y: 40, scale: 0.95}}
+                            animate={{opacity: 1, y: 0, scale: 1}}
+                            transition={{duration: 0.7, delay: index * 0.15}}
+                            className="group cursor-pointer"
+                            // Soft Shadow para efecto neumórfico
+                            whileHover={{y: -5, scale: 1.03, boxShadow: '0 25px 50px rgba(0, 0, 0, 0.1), 0 10px 15px rgba(0, 0, 0, 0.05)'}}
+                        >
+                            {/* CAMBIO: Tarjetas blancas con blur (Light Glassmorphism) */}
+                            <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-6 shadow-xl border border-gray-200/50 transition-all duration-500 relative overflow-hidden">
+                                {/* Gradiente sutil para el fondo */}
+                                <div className={`absolute inset-0 bg-gradient-to-br ${stat.lightGradient} opacity-30`}></div>
+
+                                <div className="relative z-10">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className={`p-3 rounded-xl bg-gradient-to-br ${bg} shadow-lg shadow-indigo-500/30 group-hover:scale-105 transition-all duration-300`}>
+                                            <stat.icon className="w-6 h-6 text-white"/>
+                                        </div>
+                                        {/* Se muestra solo si el valor de cambio no es N/A */}
+                                        {stat.change !== 'N/A' && (
+                                            <div className={`flex items-center space-x-1 text-sm font-bold ${trendColor} bg-white/50 px-3 py-1 rounded-full border border-gray-100`}>
+                                                <TrendIcon className="w-4 h-4"/>
+                                                <span>{stat.change}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <h3 className="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 mb-1">
+                                        {stat.value}
+                                    </h3>
+                                    <p className="text-gray-900 font-semibold mb-1 text-lg">{stat.label}</p>
+                                    {/* Mostrar descripción o mensaje de error */}
+                                    <p className={`text-sm ${stat.value === 'Error' || stat.description === 'Error al cargar datos' ? 'text-red-500 font-bold' : 'text-gray-600'}`}>
+                                        {stat.description}
+                                    </p>
+                                </div>
+                            </div>
+                        </motion.div>
+                    );
+                })}
+            </div>
+
+            {/* Quick Actions & Recent Activity (Diseño Asimétrico) */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Quick Actions */}
+                <div className="lg:col-span-2 space-y-6">
+                    <h3 className="text-2xl font-bold text-gray-900">Acciones Médicas Esenciales</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        {quickActions.map((action, index) => {
+                            const {bg, hoverBg, text} = getGradientClasses(action.color);
+                            return (
+                                <motion.button
+                                    key={action.title}
+                                    onClick={action.action}
+                                    whileHover={{scale: 1.05, y: -5}}
+                                    whileTap={{scale: 0.98}}
+                                    // CAMBIO: Tarjetas claras
+                                    className={`p-6 bg-white/80 backdrop-blur-xl rounded-3xl text-left group transition-all duration-500 shadow-xl border border-gray-200/50 hover:border-transparent relative overflow-hidden`}
+                                    initial={{opacity: 0, x: -20}}
+                                    animate={{opacity: 1, x: 0}}
+                                    transition={{duration: 0.6, delay: index * 0.15}}
+                                >
+                                    {/* Gradiente de fondo en hover */}
+                                    <div className={`absolute inset-0 bg-gradient-to-br ${hoverBg} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}></div>
+
+                                    <div className="relative z-10">
+                                        <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${bg} flex items-center justify-center mb-4 shadow-xl shadow-indigo-500/30 group-hover:scale-105 transition-all duration-300`}>
+                                            <action.icon className="w-7 h-7 text-white"/>
+                                        </div>
+                                        <h4 className={`font-extrabold text-xl mb-2 ${text} transition-colors text-gray-900`}>
+                                            {action.title}
+                                        </h4>
+                                        <p className="text-gray-600 text-sm leading-relaxed">
+                                            {action.description}
+                                        </p>
+                                    </div>
+                                </motion.button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Recent Activity */}
+                <div>
+                    <h3 className="text-2xl font-bold text-gray-900 mb-6">Actividad Reciente</h3>
+                    {/* CAMBIO: Tarjetas claras */}
+                    <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-gray-200/50 p-6 shadow-xl space-y-2">
+                        {/* CORRECCIÓN: Usar la actividad actualizada (o simulada) */}
+                        {recentActivities.length > 0 ? (
+                            recentActivities.map((activity, index) => {
+                                const statusColor = activity.status === 'success' ? 'emerald' : activity.status === 'info' ? 'blue' : 'amber';
+                                return (
+                                    <motion.div
+                                        key={index}
+                                        initial={{opacity: 0, x: 10}}
+                                        animate={{opacity: 1, x: 0}}
+                                        transition={{duration: 0.5, delay: index * 0.1}}
+                                        className="flex items-start space-x-4 p-4 rounded-2xl hover:bg-gray-50/70 transition-all duration-300 cursor-pointer"
+                                        whileHover={{x: 5, scale: 1.01}}
+                                    >
+                                        <div className={`w-2 h-2 rounded-full mt-2 bg-${statusColor}-500 shadow-md shadow-${statusColor}-500/50`}/>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-gray-900 text-sm font-semibold leading-relaxed">
+                                                {activity.action}
+                                            </p>
+                                            <p className="text-gray-500 text-xs mt-1">
+                                                {activity.time}
+                                            </p>
+                                        </div>
+                                        <motion.div
+                                            className={`text-${statusColor}-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300`}
+                                            whileHover={{scale: 1.2}}
+                                        >
+                                            <ActivityIcon className="w-4 h-4"/>
+                                        </motion.div>
+                                    </motion.div>
+                                );
+                            })
+                        ) : (
+                            <div className="text-center py-4 text-gray-500">
+                                No hay actividad reciente registrada.
+                            </div>
+                        )}
+                        <motion.button
+                            className="w-full mt-4 py-3 text-indigo-600 font-bold rounded-2xl bg-indigo-50/50 hover:bg-indigo-100 transition-all duration-300 border border-indigo-200/50"
+                            whileHover={{scale: 1.02}}
+                            whileTap={{scale: 0.98}}
+                        >
+                            Ver historial completo
+                        </motion.button>
+                    </div>
+                </div>
+            </div>
+        </motion.div>
+    );
+
     if (!user) {
-        // Mejorado: Loader en tema claro
+        // Loader
         return (
             <div className="min-h-screen bg-slate-50 flex items-center justify-center">
                 <div className="text-center p-10 rounded-xl bg-white/80 shadow-2xl backdrop-blur-md">
@@ -139,7 +442,6 @@ const Dashboard = () => {
         );
     }
 
-    // --- Estructura del Dashboard ---
     return (
         // CAMBIO: Fondo principal claro suave (bg-slate-50)
         <div className="min-h-screen bg-slate-50 text-gray-900 flex font-sans">
@@ -237,6 +539,7 @@ const Dashboard = () => {
                                 }[activeSection]}
                             </h1>
                             <div className="flex items-center space-x-4 text-sm text-gray-500 mt-1">
+                                {/* CORRECCIÓN: Saludo Único en el Top Bar */}
                                 <span className="font-semibold text-indigo-600">{getGreeting()}, {user.full_name?.split(' ')[0] || 'Colega'}</span>
                                 <span className="flex items-center space-x-1">
                                     <Clock className="w-3 h-3 text-gray-500"/>
@@ -244,7 +547,7 @@ const Dashboard = () => {
                                 </span>
                                 <span className="flex items-center space-x-1 text-emerald-600 font-medium bg-emerald-50/70 px-2 py-0.5 rounded-lg border border-emerald-100">
                                     <ShieldCheck className="w-3 h-3"/>
-                                    {getDailyMetrics()}
+                                    {dailyMetricsStatus}
                                 </span>
                             </div>
                         </motion.div>
@@ -286,194 +589,13 @@ const Dashboard = () => {
 
                 {/* Main Content Area */}
                 <main className="flex-1 p-8 overflow-y-auto">
-                    {activeSection === 'overview' && (
-                        <motion.div
-                            initial={{opacity: 0, y: 30}}
-                            animate={{opacity: 1, y: 0}}
-                            transition={{duration: 0.7, ease: "easeOut"}}
-                            className="space-y-8"
-                        >
-                            {/* Welcome Section - Banner */}
-                            <motion.div
-                                className="relative overflow-hidden rounded-3xl"
-                                initial={{y: 20}}
-                                animate={{y: 0}}
-                                transition={{type: "spring", stiffness: 100, delay: 0.1}}
-                            >
-                                <div className="p-8 bg-gradient-to-r from-indigo-600 to-cyan-600 text-white shadow-2xl shadow-indigo-500/50">
-                                    {/* Patrón de Fondo Abstracto */}
-                                    <div className="absolute inset-0 opacity-[0.05] bg-repeat" style={{backgroundImage: `radial-gradient(circle at 10% 10%, white 1px, transparent 0)`, backgroundSize: '30px 30px'}}></div>
-
-                                    <div className="relative z-10 flex items-center justify-between">
-                                        <div>
-                                            <h2 className="text-3xl font-extrabold mb-2 text-white">
-                                                ¡{getGreeting()}, Dr. {user.full_name?.split(' ')[0] || 'Colega'}!
-                                            </h2>
-                                            <div className="flex items-center space-x-4 text-sm">
-                                                <div className="flex items-center space-x-2 bg-white/20 px-3 py-1.5 rounded-full border border-white/20">
-                                                    <Zap className="w-4 h-4 text-cyan-300"/>
-                                                    <span className="font-semibold text-cyan-200">Rendimiento Máximo</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="flex-shrink-0">
-                                            <HeartPulse className="w-16 h-16 text-white/50"/>
-                                        </div>
-                                    </div>
-                                </div>
-                            </motion.div>
-
-                            {/* Stats Grid - Soft UI Cards */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                {stats.map((stat, index) => {
-                                    const {bg} = getGradientClasses(stat.color);
-                                    const TrendIcon = stat.trend === 'up' ? TrendingUp : TrendingDown;
-                                    const trendColor = stat.trend === 'up' ? 'text-emerald-500' : 'text-red-500';
-
-                                    return (
-                                        <motion.div
-                                            key={stat.label}
-                                            initial={{opacity: 0, y: 40, scale: 0.95}}
-                                            animate={{opacity: 1, y: 0, scale: 1}}
-                                            transition={{duration: 0.7, delay: index * 0.15}}
-                                            className="group cursor-pointer"
-                                            // Soft Shadow para efecto neumórfico
-                                            whileHover={{y: -5, scale: 1.03, boxShadow: '0 25px 50px rgba(0, 0, 0, 0.1), 0 10px 15px rgba(0, 0, 0, 0.05)'}}
-                                        >
-                                            {/* CAMBIO: Tarjetas blancas con blur (Light Glassmorphism) */}
-                                            <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-6 shadow-xl border border-gray-200/50 transition-all duration-500 relative overflow-hidden">
-                                                {/* Gradiente sutil para el fondo */}
-                                                <div className={`absolute inset-0 bg-gradient-to-br ${stat.lightGradient} opacity-30`}></div>
-
-                                                <div className="relative z-10">
-                                                    <div className="flex items-center justify-between mb-4">
-                                                        <div className={`p-3 rounded-xl bg-gradient-to-br ${bg} shadow-lg shadow-indigo-500/30 group-hover:scale-105 transition-all duration-300`}>
-                                                            <stat.icon className="w-6 h-6 text-white"/>
-                                                        </div>
-                                                        <div className={`flex items-center space-x-1 text-sm font-bold ${trendColor} bg-white/50 px-3 py-1 rounded-full border border-gray-100`}>
-                                                            <TrendIcon className="w-4 h-4"/>
-                                                            <span>{stat.change}</span>
-                                                        </div>
-                                                    </div>
-                                                    <h3 className="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 mb-1">
-                                                        {stat.value}
-                                                    </h3>
-                                                    <p className="text-gray-900 font-semibold mb-1 text-lg">{stat.label}</p>
-                                                    <p className="text-gray-600 text-sm">{stat.description}</p>
-                                                </div>
-                                            </div>
-                                        </motion.div>
-                                    );
-                                })}
-                            </div>
-
-                            {/* Quick Actions & Recent Activity (Diseño Asimétrico) */}
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                                {/* Quick Actions */}
-                                <div className="lg:col-span-2 space-y-6">
-                                    <h3 className="text-2xl font-bold text-gray-900">Acciones Médicas Esenciales</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                        {quickActions.map((action, index) => {
-                                            const {bg, hoverBg, text} = getGradientClasses(action.color);
-                                            return (
-                                                <motion.button
-                                                    key={action.title}
-                                                    onClick={action.action}
-                                                    whileHover={{scale: 1.05, y: -5}}
-                                                    whileTap={{scale: 0.98}}
-                                                    // CAMBIO: Tarjetas claras
-                                                    className={`p-6 bg-white/80 backdrop-blur-xl rounded-3xl text-left group transition-all duration-500 shadow-xl border border-gray-200/50 hover:border-transparent relative overflow-hidden`}
-                                                    initial={{opacity: 0, x: -20}}
-                                                    animate={{opacity: 1, x: 0}}
-                                                    transition={{duration: 0.6, delay: index * 0.15}}
-                                                >
-                                                    {/* Gradiente de fondo en hover */}
-                                                    <div className={`absolute inset-0 bg-gradient-to-br ${hoverBg} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}></div>
-
-                                                    <div className="relative z-10">
-                                                        <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${bg} flex items-center justify-center mb-4 shadow-xl shadow-indigo-500/30 group-hover:scale-105 transition-all duration-300`}>
-                                                            <action.icon className="w-7 h-7 text-white"/>
-                                                        </div>
-                                                        <h4 className={`font-extrabold text-xl mb-2 ${text} transition-colors text-gray-900`}>
-                                                            {action.title}
-                                                        </h4>
-                                                        <p className="text-gray-600 text-sm leading-relaxed">
-                                                            {action.description}
-                                                        </p>
-                                                    </div>
-                                                </motion.button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-
-                                {/* Recent Activity */}
-                                <div>
-                                    <h3 className="text-2xl font-bold text-gray-900 mb-6">Actividad Reciente</h3>
-                                    {/* CAMBIO: Tarjetas claras */}
-                                    <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-gray-200/50 p-6 shadow-xl space-y-2">
-                                        {recentActivities.map((activity, index) => {
-                                            const statusColor = activity.status === 'success' ? 'emerald' : activity.status === 'info' ? 'blue' : 'amber';
-                                            return (
-                                                <motion.div
-                                                    key={index}
-                                                    initial={{opacity: 0, x: 10}}
-                                                    animate={{opacity: 1, x: 0}}
-                                                    transition={{duration: 0.5, delay: index * 0.1}}
-                                                    className="flex items-start space-x-4 p-4 rounded-2xl hover:bg-gray-50/70 transition-all duration-300 cursor-pointer"
-                                                    whileHover={{x: 5, scale: 1.01}}
-                                                >
-                                                    <div className={`w-2 h-2 rounded-full mt-2 bg-${statusColor}-500 shadow-md shadow-${statusColor}-500/50`}/>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-gray-900 text-sm font-semibold leading-relaxed">
-                                                            {activity.action}
-                                                        </p>
-                                                        <p className="text-gray-500 text-xs mt-1">
-                                                            {activity.time}
-                                                        </p>
-                                                    </div>
-                                                    <motion.div
-                                                        className={`text-${statusColor}-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300`}
-                                                        whileHover={{scale: 1.2}}
-                                                    >
-                                                        <ActivityIcon className="w-4 h-4"/>
-                                                    </motion.div>
-                                                </motion.div>
-                                            );
-                                        })}
-                                        <motion.button
-                                            className="w-full mt-4 py-3 text-indigo-600 font-bold rounded-2xl bg-indigo-50/50 hover:bg-indigo-100 transition-all duration-300 border border-indigo-200/50"
-                                            whileHover={{scale: 1.02}}
-                                            whileTap={{scale: 0.98}}
-                                        >
-                                            Ver historial completo
-                                        </motion.button>
-                                    </div>
-                                </div>
-                            </div>
-                        </motion.div>
-                    )}
-
-                    {activeSection === 'recordings' && (
-                        <motion.div
-                            initial={{opacity: 0, y: 20}}
-                            animate={{opacity: 1, y: 0}}
-                            transition={{duration: 0.6}}
-                            // CAMBIO: Fondo claro
-                            className="p-6 bg-white/70 backdrop-blur-xl rounded-3xl shadow-2xl border border-gray-200/50"
-                        >
-                            <h2 className="text-2xl font-bold text-gray-900 mb-6">🎙️ Sistema de Grabación y Transcripción Inteligente</h2>
-                            {/* Componente AudioRecorder asumiendo un estilo profesional */}
-                            <AudioRecorder/>
-                            <div className="mt-8 p-4 bg-blue-50/50 rounded-xl flex items-center space-x-3 border border-blue-200/50">
-                                <Brain className="w-5 h-5 text-indigo-600"/>
-                                <p className="text-sm text-gray-700 font-medium">Las grabaciones se procesan con **Inteligencia Artificial** para una transcripción y estructuración automática de informes clínicos.</p>
-                            </div>
-                        </motion.div>
-                    )}
-
+                    {/* Renderiza el contenido dinámico según activeSection */}
+                    {renderContent()}
                 </main>
             </div>
+
+            {/* Componente Global de Notificación */}
+            <NotificationToast notifications={notifications} removeNotification={removeNotification} />
         </div>
     );
 };
