@@ -1,20 +1,28 @@
 // src/pages/DocumentView.jsx
-import React, {useState, useEffect} from 'react';
-import {motion} from 'framer-motion';
+
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import {
-    X, CheckCircle, Save, Download, FileText, ArrowLeft, Radiation, Stethoscope, Pill, AlertCircle, RefreshCcw
+    ArrowLeft, Edit3, Save, FileText, CheckCircle, Upload,
+    Loader2, X, AlertTriangle, FileUp, Download, Stethoscope,
+    Pill, Radiation, AlertCircle, RefreshCcw, MapPin, Phone,
+    Mail, Briefcase, Scan, UserCheck, ClipboardList, Hospital,
+    ShieldCheck, Activity, Heart, Calendar, User, AlignLeft
 } from 'lucide-react';
-import {clinicalService} from '../services/clinical';
+
+import { clinicalService } from '../services/clinical';
+import MembreteHeader from '../components/ui/MembreteHeader';
+
 
 const DOCUMENT_TYPES_MAP = {
-    clinical_history: {label: 'Historia Clínica', color: 'indigo', icon: Stethoscope},
-    radiology_report: {label: 'Informe Radiológico', color: 'amber', icon: Radiation},
-    medical_prescription: {label: 'Fórmula Médica', color: 'emerald', icon: Pill},
-    medical_certificate: {label: 'Certificado Médico', color: 'purple', icon: FileText},
-    incapacity: {label: 'Incapacidad', color: 'red', icon: FileText}
+    clinical_history: {label: 'HISTORIA CLÍNICA', color: 'indigo', icon: Stethoscope, dual_icon: ClipboardList},
+    radiology_report: {label: 'INFORME RADIOLÓGICO', color: 'amber', icon: Radiation, dual_icon: Scan},
+    medical_prescription: {label: 'FÓRMULA MÉDICA', color: 'emerald', icon: Pill, dual_icon: Pill},
+    medical_certificate: {label: 'CERTIFICADO MÉDICO', color: 'purple', icon: FileText, dual_icon: ShieldCheck},
+    incapacity: {label: 'INCAPACIDAD', color: 'red', icon: FileText, dual_icon: UserCheck}
 };
 
-const DocumentView = ({documentId, onBack, notifications}) => { // Recibe notifications
+const DocumentView = ({ documentId, onBack, notifications, tenantMetadata }) => {
     const [documentData, setDocumentData] = useState(null);
     const [content, setContent] = useState('');
     const [loading, setLoading] = useState(true);
@@ -22,15 +30,12 @@ const DocumentView = ({documentId, onBack, notifications}) => { // Recibe notifi
     const [error, setError] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
 
-    const { success, error: notifyError, info } = notifications; // Aseguramos 'info' aunque no se use en este archivo
+    const { success, error: notifyError, info } = notifications;
 
-
-    // Definición segura de la configuración
     const docConfig = documentData ?
         DOCUMENT_TYPES_MAP[documentData.document_type] || DOCUMENT_TYPES_MAP.clinical_history :
         DOCUMENT_TYPES_MAP.clinical_history;
 
-    // Extracción segura del componente Icono
     const DocIcon = docConfig.icon;
 
 
@@ -60,13 +65,11 @@ const DocumentView = ({documentId, onBack, notifications}) => { // Recibe notifi
         setIsSaving(true);
         setError(null);
         try {
-            // Llama al servicio de actualización
             const updatedDoc = await clinicalService.updateDocumentContent(documentId, content, isFinalizing);
 
             setDocumentData(updatedDoc);
             setIsEditing(false);
 
-            // CORRECCIÓN DE ALERTS GENÉRICOS (Reemplazo por Toasts)
             if (isFinalizing) {
                 success("Documento Finalizado y Aprobado. Listo para exportación.", 7000);
             } else {
@@ -89,11 +92,10 @@ const DocumentView = ({documentId, onBack, notifications}) => { // Recibe notifi
         setIsSaving(true);
         setError(null);
         try {
-            // CORRECCIÓN DE ALERTS GENÉRICOS (Reemplazo por Toasts)
             info('Sincronización Iniciada: El documento está siendo procesado para el HIS (Asíncrono).', 7000);
             const exportedDoc = await clinicalService.exportDocument(documentId);
 
-            setDocumentData(exportedDoc); // Actualiza el estado a is_synced: true
+            setDocumentData(exportedDoc);
 
             success("Exportación a HIS disparada con éxito.", 7000);
         } catch (e) {
@@ -104,6 +106,60 @@ const DocumentView = ({documentId, onBack, notifications}) => { // Recibe notifi
         }
     };
 
+    const handleDownloadPdf = () => {
+        if (!documentData.is_finalized) {
+            notifications.warning("Debe Finalizar el documento para descargar la versión oficial.", 6000);
+            return;
+        }
+
+        const patientId = documentData.clinical_meta?.patient_id?.replace(/[^a-zA-Z0-9-]/g, '_') || 'Paciente_ID';
+        const subject = documentData.clinical_meta?.clinical_subject?.replace(/[^a-zA-Z0-9-]/g, '_') || 'Informe';
+        const docTypeLabel = docConfig.label.replace(/[^a-zA-Z0-9-]/g, '');
+
+        const filename = `${patientId}-${subject}-${docTypeLabel}.pdf`;
+
+        document.title = filename;
+        window.print();
+
+        setTimeout(() => {
+            document.title = "DataVoxMedical | Revisión Documento";
+        }, 500);
+
+        notifications.info("Abriendo diálogo de impresión. Seleccione 'Guardar como PDF'.", 5000);
+    }
+
+    const getCleanContent = () => {
+        if (!documentData || !documentData.content) return '';
+
+        let cleanContent = documentData.content;
+
+        const footerRegex = /--- FIN DEL INFORME ---[\s\S]*$/g;
+        cleanContent = cleanContent.replace(footerRegex, '');
+
+        const headerRegex = /--- INFORME MÉDICO OFICIAL ---[\s\S]*?---/g;
+        cleanContent = cleanContent.replace(headerRegex, '');
+
+        return cleanContent.trim();
+    };
+
+    const getPrintFooter = () => {
+        const legalId = tenantMetadata?.meta?.legal_id || 'N/A';
+        const institutionName = tenantMetadata?.name || 'Institución Médica';
+
+        return (
+            <div className="print-footer text-center text-xs text-gray-600 mt-8 pt-4 border-t border-gray-200">
+                <p className="font-semibold text-gray-700">{institutionName}</p>
+                <p className="mt-1 flex items-center justify-center">
+                    <Mail className="inline-block w-3 h-3 mr-1 align-middle" /> contact@datavox.com
+                    <span className="mx-2">|</span>
+                    <Phone className="inline-block w-3 h-3 mr-1 align-middle" /> +57 (310) 123-4567
+                    <span className="mx-2">|</span>
+                    <Briefcase className="inline-block w-3 h-3 mr-1 align-middle" /> {legalId}
+                </p>
+                <p className="mt-2 text-gray-500">Plataforma Inteligente de Salud potenciada por DataVoxMedical</p>
+            </div>
+        );
+    };
 
     if (loading) {
         return (
@@ -131,6 +187,10 @@ const DocumentView = ({documentId, onBack, notifications}) => { // Recibe notifi
         );
     }
 
+    const isDocumentFinalized = documentData?.is_finalized;
+    const isDocumentSynced = documentData?.is_synced;
+
+
     return (
         <motion.div
             initial={{opacity: 0, x: 20}}
@@ -138,8 +198,9 @@ const DocumentView = ({documentId, onBack, notifications}) => { // Recibe notifi
             transition={{duration: 0.6}}
             className="space-y-6"
         >
+            {/* Control Bar (Ocultar al imprimir) */}
             <div
-                className="flex justify-between items-center bg-white/70 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-gray-200/50">
+                className="flex justify-between items-center bg-white/70 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-gray-200/50 print:hidden">
                 <h2 className="text-3xl font-bold text-gray-900 flex items-center space-x-3">
                     <DocIcon className={`w-8 h-8 text-${docConfig.color}-600`}/>
                     <span>{docConfig.label} - Revisión Final</span>
@@ -156,109 +217,178 @@ const DocumentView = ({documentId, onBack, notifications}) => { // Recibe notifi
 
             {error && (
                 <div
-                    className="p-3 bg-red-50/70 border border-red-200 rounded-xl text-red-700 text-sm flex items-center space-x-2">
+                    className="p-3 bg-red-50/70 border border-red-200 rounded-xl text-red-700 text-sm flex items-center space-x-2 print:hidden">
                     <AlertCircle className="w-4 h-4"/>
                     <span>{error}</span>
                 </div>
             )}
 
-            <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-6 shadow-xl border border-gray-200/50">
-                <div className="grid grid-cols-3 gap-4 mb-6 pb-4 border-b border-gray-200">
-                    <div className="text-sm">
-                        <span className="font-semibold text-gray-600">Paciente ID:</span>
-                        <p className="font-bold text-gray-900">{documentData.clinical_meta?.patient_id || 'N/A'}</p>
-                    </div>
-                    <div className="text-sm">
-                        <span className="font-semibold text-gray-600">Estado:</span>
-                        <p className={`font-bold ${documentData.is_synced ? 'text-emerald-600' : documentData.is_finalized ? 'text-blue-600' : 'text-amber-600'}`}>
-                            {documentData.is_synced ? 'SINCRONIZADO' : documentData.is_finalized ? 'FINALIZADO (Pend. HIS)' : 'BORRADOR'}
-                        </p>
-                    </div>
-                    <div className="text-sm">
-                        <span className="font-semibold text-gray-600">Médico:</span>
-                        <p className="text-gray-900">{documentData.clinical_meta?.doctor_name || 'N/A'}</p>
-                    </div>
+            {/* Contenido Principal (Lo que se imprimirá/editará) */}
+            <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-6 shadow-xl border border-gray-200/50 print:shadow-none print:p-0 print:border-none">
+
+                {/* --- Membrete VISUAL (Solo para vista de edición) --- */}
+                <div className="print:hidden">
+                    <MembreteHeader tenantMetadata={tenantMetadata} isPrintMode={false} />
                 </div>
 
-                {/* Área de Contenido */}
-                {isEditing ? (
-                    <textarea
-                        value={content}
-                        onChange={(e) => setContent(e.target.value)}
-                        className="w-full h-96 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none text-sm font-mono"
-                        placeholder="Edite el contenido del documento médico..."
-                        disabled={isSaving}
-                    />
-                ) : (
-                    <div
-                        className="w-full h-96 p-4 border border-gray-100 bg-gray-50 rounded-lg overflow-y-auto shadow-inner text-gray-800 whitespace-pre-wrap text-sm">
-                        {documentData.content}
+                <div className="p-6 print:p-0 print:m-0">
+
+                    {/* Bloque de Metadata de React (OCULTAR para impresión) */}
+                    <div className="grid grid-cols-3 gap-4 mb-6 pb-4 border-b border-gray-200 print:hidden">
+                        <div className="text-sm">
+                            <span className="font-semibold text-gray-600">Paciente ID:</span>
+                            <p className="font-bold text-gray-900">{documentData.clinical_meta?.patient_id || 'N/A'}</p>
+                        </div>
+                        <div className="text-sm">
+                            <span className="font-semibold text-gray-600">Estado:</span>
+                            <p className={`font-bold ${documentData.is_synced ? 'text-emerald-600' : documentData.is_finalized ? 'text-blue-600' : 'text-amber-600'}`}>
+                                {documentData.is_synced ? 'SINCRONIZADO' : documentData.is_finalized ? 'FINALIZADO (Pend. HIS)' : 'BORRADOR'}
+                            </p>
+                        </div>
+                        <div className="text-sm">
+                            <span className="font-semibold text-gray-600">Médico:</span>
+                            <p className="text-gray-900">{documentData.clinical_meta?.doctor_name || 'N/A'}</p>
+                        </div>
                     </div>
-                )}
 
-                {/* Botones de Acción */}
-                <div className="mt-6 flex justify-end space-x-3">
+                    {/* Área de Contenido (Texto del informe) */}
                     {isEditing ? (
-                        <>
-                            <motion.button
-                                onClick={() => {
-                                    setContent(documentData.content);
-                                    setIsEditing(false);
-                                }}
-                                className="px-4 py-2 text-gray-600 font-semibold rounded-xl hover:bg-gray-100 transition-colors"
-                                disabled={isSaving}
-                            >
-                                Cancelar Edición
-                            </motion.button>
-                            <motion.button
-                                onClick={() => handleSave(false)}
-                                className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-xl font-semibold shadow-lg hover:from-blue-700 transition-all"
-                                whileTap={{scale: 0.98}}
-                                disabled={isSaving}
-                            >
-                                {isSaving ? <RefreshCcw className="w-4 h-4 animate-spin"/> :
-                                    <Save className="w-4 h-4"/>}
-                                <span>Guardar Borrador</span>
-                            </motion.button>
-                        </>
+                        <textarea
+                            value={content}
+                            onChange={(e) => setContent(e.target.value)}
+                            className="w-full h-96 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none text-sm font-mono"
+                            placeholder="Edite el contenido del documento médico..."
+                            disabled={isSaving}
+                        />
                     ) : (
-                        <>
-                            {/* Botón de Edición/Finalización */}
-                            {!documentData.is_finalized && (
-                                <motion.button
-                                    onClick={() => setIsEditing(true)}
-                                    className="px-4 py-2 bg-amber-500/10 text-amber-600 font-semibold rounded-xl hover:bg-amber-100 transition-colors"
-                                    whileTap={{scale: 0.98}}
-                                >
-                                    Editar / Finalizar
-                                </motion.button>
-                            )}
+                        <div
+                            className="w-full min-h-[400px] p-4 border border-gray-100 bg-gray-50 rounded-lg overflow-y-auto shadow-inner text-gray-800 whitespace-pre-wrap text-sm print:shadow-none print:bg-white print:border-none print:p-0 print:text-black print:overflow-visible print:min-h-auto print:whitespace-pre-line">
 
-                            {/* Botón de Finalizar/Aprobar */}
-                            {!documentData.is_finalized ? (
+                            {/* --- CONTENIDO ESPECÍFICO PARA IMPRESIÓN (PDF) --- */}
+                            <div className="hidden print:block print:p-8 print:m-0 print:w-full print:h-full print:flex print:flex-col">
+                                {/* Membrete Superior para PDF (Gestionado por MembreteHeader) */}
+                                <MembreteHeader tenantMetadata={tenantMetadata} isPrintMode={true} />
+
+                                {/* Encabezado del Tipo de Documento y Datos */}
+                                <div className="text-left mb-6 mt-4">
+                                    <div className="flex items-center space-x-4 mb-3">
+                                        <div className={`w-10 h-10 bg-gradient-to-br from-${docConfig.color}-500 to-${docConfig.color}-400 flex items-center justify-center rounded-md shadow-md`}>
+                                            {React.createElement(docConfig.dual_icon, { className: `w-6 h-6 text-white` })}
+                                        </div>
+                                        <h2 className="text-2xl font-bold text-gray-800">{docConfig.label}</h2>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 text-sm text-gray-700">
+                                        <p><User className="inline-block w-3 h-3 mr-1 align-middle" /><span className="font-semibold">Paciente ID:</span> {documentData.clinical_meta?.patient_id || 'N/A'}</p>
+                                        <p className="text-right"><Stethoscope className="inline-block w-3 h-3 mr-1 align-middle" /><span className="font-semibold">Médico:</span> {documentData.clinical_meta?.doctor_name || 'N/A'}</p>
+                                        <p><AlignLeft className="inline-block w-3 h-3 mr-1 align-middle" /><span className="font-semibold">Asunto:</span> {documentData.clinical_meta?.clinical_subject || 'N/A'}</p>
+                                        <p className="text-right"><Calendar className="inline-block w-3 h-3 mr-1 align-middle" /><span className="font-semibold">Fecha:</span> {new Date(documentData.created_at).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                                    </div>
+                                    <hr className="my-4 border-gray-200" />
+                                </div>
+
+                                {/* Contenido principal del informe */}
+                                <div className="flex-grow text-base text-gray-800 leading-relaxed mb-6">
+                                    {getCleanContent()}
+
+                                    {/* Validaciones de IA y Doctor al final del contenido */}
+                                    <div className="mt-8 pt-4 border-t border-gray-100 text-sm text-gray-700 italic">
+                                        {documentData.clinical_meta?.ia_validation === false && (
+                                            <p className="flex items-center text-red-600"><AlertTriangle className="w-4 h-4 mr-2" />Revisión IA: Pendiente o Inconsistente.</p>
+                                        )}
+                                        {documentData.clinical_meta?.doctor_validation === true && (
+                                            <p className="flex items-center text-emerald-600"><CheckCircle className="w-4 h-4 mr-2" />Validado y Aprobado por: {documentData.clinical_meta.doctor_name}</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Pie de página para PDF */}
+                                {getPrintFooter()}
+                            </div>
+
+                            {/* Contenido para la vista normal (no impresión) */}
+                            <div className="print:hidden">
+                                {getCleanContent()}
+                            </div>
+
+                        </div>
+                    )}
+                </div>
+
+                {/* Botones de Acción (Ocultar al imprimir) */}
+                <div className="mt-6 flex justify-between space-x-3 p-6 pt-0 print:hidden">
+
+                    <motion.button
+                        onClick={handleDownloadPdf}
+                        className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-semibold transition-all shadow-md ${isDocumentFinalized ? 'bg-indigo-500 hover:bg-indigo-600 text-white' : 'bg-gray-300 text-gray-600 cursor-not-allowed'}`}
+                        disabled={!isDocumentFinalized}
+                        whileTap={{scale: 0.98}}
+                    >
+                        <Download className="w-4 h-4"/>
+                        <span>Descargar PDF Oficial</span>
+                    </motion.button>
+
+
+                    <div className="flex space-x-3">
+                        {isEditing ? (
+                            <>
                                 <motion.button
-                                    onClick={() => handleSave(true)}
-                                    className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-xl font-semibold shadow-lg hover:from-emerald-600 transition-all"
+                                    onClick={() => {
+                                        setContent(documentData.content);
+                                        setIsEditing(false);
+                                    }}
+                                    className="px-4 py-2 text-gray-600 font-semibold rounded-xl hover:bg-gray-100 transition-colors"
+                                    disabled={isSaving}
+                                >
+                                    Cancelar Edición
+                                </motion.button>
+                                <motion.button
+                                    onClick={() => handleSave(false)}
+                                    className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-xl font-semibold shadow-lg hover:from-blue-700 transition-all"
                                     whileTap={{scale: 0.98}}
                                     disabled={isSaving}
                                 >
-                                    <CheckCircle className="w-4 h-4"/>
-                                    <span>Finalizar y Aprobar</span>
+                                    {isSaving ? <RefreshCcw className="w-4 h-4 animate-spin"/> :
+                                        <Save className="w-4 h-4"/>}
+                                    <span>Guardar Borrador</span>
                                 </motion.button>
-                            ) : (
-                                // Botón de Exportar (visible solo si está finalizado)
-                                <motion.button
-                                    onClick={handleExport}
-                                    className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-semibold transition-all ${documentData.is_synced ? 'bg-gray-400 text-white cursor-default' : 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 shadow-lg'}`}
-                                    whileTap={documentData.is_synced ? {} : {scale: 0.98}}
-                                    disabled={documentData.is_synced || isSaving}
-                                >
-                                    <Download className="w-4 h-4"/>
-                                    <span>{documentData.is_synced ? 'Exportado a HIS' : 'Exportar a HIS'}</span>
-                                </motion.button>
-                            )}
-                        </>
-                    )}
+                            </>
+                        ) : (
+                            <>
+                                {!documentData.is_finalized && (
+                                    <motion.button
+                                        onClick={() => setIsEditing(true)}
+                                        className="px-4 py-2 bg-amber-500/10 text-amber-600 font-semibold rounded-xl hover:bg-amber-100 transition-colors"
+                                        whileTap={{scale: 0.98}}
+                                    >
+                                        <Edit3 className="w-4 h-4 mr-2"/>
+                                        Editar Documento
+                                    </motion.button>
+                                )}
+
+                                {!documentData.is_finalized ? (
+                                    <motion.button
+                                        onClick={() => handleSave(true)}
+                                        className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-xl font-semibold shadow-lg hover:from-emerald-600 transition-all"
+                                        whileTap={{scale: 0.98}}
+                                        disabled={isSaving}
+                                    >
+                                        <CheckCircle className="w-4 h-4"/>
+                                        <span>Finalizar y Aprobar</span>
+                                    </motion.button>
+                                ) : (
+                                    <motion.button
+                                        onClick={handleExport}
+                                        className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-semibold transition-all ${documentData.is_synced ? 'bg-gray-400 text-white cursor-default' : 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 shadow-lg'}`}
+                                        whileTap={documentData.is_synced ? {} : {scale: 0.98}}
+                                        disabled={documentData.is_synced || isSaving}
+                                    >
+                                        <Upload className="w-4 h-4"/>
+                                        <span>{documentData.is_synced ? 'Exportado a HIS' : 'Exportar a HIS'}</span>
+                                    </motion.button>
+                                )}
+                            </>
+                        )}
+                    </div>
                 </div>
             </div>
         </motion.div>

@@ -1,3 +1,4 @@
+// src/pages/Dashboard.jsx
 // src/pages/Dashboard.jsx - VERSIÓN ULTRA-MODERNA (SOFT UI / LIGHT GLASSMORHPISM)
 import React, {useState, useEffect} from 'react';
 import {motion} from 'framer-motion';
@@ -65,6 +66,9 @@ const Dashboard = () => {
     const [activeSection, setActiveSection] = useState('overview');
     const [currentTime, setCurrentTime] = useState(new Date());
     const [documentViewId, setDocumentViewId] = useState(null);
+    // ESTADO PARA METADATA DEL TENANT
+    const [tenantMetadata, setTenantMetadata] = useState(null);
+
 
     // CORRECCIÓN: Desestructurar TODAS las funciones del hook de notificaciones
     const { notifications, removeNotification, error, success, system, info, ai, warning } = useNotification();
@@ -106,10 +110,16 @@ const Dashboard = () => {
                 role: mockUser.role || 'Especialista',
                 initials: (mockUser.full_name || 'DM').split(' ').map(n => n[0]).join('').toUpperCase()
             });
+
+            // Lógica para guardar la metadata del tenant
+            if (userInfo && userInfo.tenant_info) {
+                setTenantMetadata(userInfo.tenant_info);
+            }
         } catch (err) {
             console.error('Error loading user data:', err);
             error('Error al cargar datos de usuario. Intente reconectar.', 8000);
             setUser({ full_name: 'Usuario Invitado', role: 'Visitante', initials: 'UI' });
+            setTenantMetadata(null);
         }
     };
 
@@ -195,7 +205,12 @@ const Dashboard = () => {
 
         // PRIORIDAD 1: Si hay un ID de documento, mostrar la vista individual
         if (documentViewId) {
-            return <DocumentView documentId={documentViewId} onBack={handleBackToReports} notifications={childNotifications} />;
+            return <DocumentView
+                documentId={documentViewId}
+                onBack={handleBackToReports}
+                notifications={childNotifications}
+                tenantMetadata={tenantMetadata} // <-- PASAR METADATA
+            />;
         }
 
         // PRIORIDAD 2: Mostrar la sección normal
@@ -222,8 +237,12 @@ const Dashboard = () => {
                 return <Patients notifications={childNotifications} />;
             case 'reports':
                 // Si la sección es reports pero documentViewId es null, muestra la lista.
-                // Pasamos la función de vista y las notificaciones a Reports
-                return <Reports onViewDocument={handleViewDocument} notifications={childNotifications} />;
+                // Pasamos la función de vista, las notificaciones Y tenantMetadata a Reports
+                return <Reports
+                    onViewDocument={handleViewDocument}
+                    notifications={childNotifications}
+                    tenantMetadata={tenantMetadata}
+                />;
             case 'schedule':
                 // Pasamos notificaciones a Schedule
                 return <Schedule notifications={childNotifications} />;
@@ -255,6 +274,9 @@ const Dashboard = () => {
                             <h2 className="text-3xl font-extrabold mb-2 text-white">
                                 ¡{getGreeting()}, Dr. {user.full_name?.split(' ')[0] || 'Colega'}!
                             </h2>
+                            <p className="text-indigo-200 text-lg mb-4 leading-relaxed">
+                                **Optimice su jornada.** Su panel central de **DataVoxMedical** le ofrece métricas y accesos inmediatos.
+                            </p>
                             <div className="flex items-center space-x-4 text-sm">
                                 <div className="flex items-center space-x-2 bg-white/20 px-3 py-1.5 rounded-full border border-white/20">
                                     <Zap className="w-4 h-4 text-cyan-300"/>

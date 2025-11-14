@@ -71,3 +71,61 @@
 ::-webkit-scrollbar-thumb:hover {
     background: linear-gradient(to bottom, #2563eb, #0d9488);
 }
+
+/* ESTILOS PARA IMPRESIÓN (PDF) */
+@media print {
+    /* 1. Ocultar todos los elementos de la interfaz fuera del área de contenido principal */
+
+    /* Oculta el sidebar, el header, y la notificación global */
+    .flex > div:first-child, header, .print\:hidden, .fixed {
+        display: none !important;
+        visibility: hidden !important;
+        position: absolute !important;
+        top: -9999px !important;
+    }
+
+    /* 2. Reiniciar el layout del body y el área de impresión */
+    body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white !important;
+        color: black !important;
+        -webkit-print-color-adjust: exact !important; /* Fuerza colores */
+        print-color-adjust: exact !important;
+    }
+
+    /* 3. Ajustar el área de contenido principal para que use todo el ancho */
+    /* El div principal con min-h-screen bg-slate-50 flex font-sans se convierte en block */
+    .flex {
+        display: block !important;
+        min-height: auto !important;
+    }
+
+    /* 4. Resetear el padding/margin de la vista principal */
+    main {
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+        flex: 1 1 auto !important;
+    }
+
+    /* 5. Asegurar que el contenido del documento se muestre sin sombras ni bordes */
+    .rounded-3xl, .rounded-xl, .shadow-xl, .shadow-md, .shadow-sm {
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+
+    /* Asegurar que el área de contenido de la vista tome todo el espacio */
+    .bg-white\/80 {
+        background-color: white !important;
+    }
+
+    /* Forzar que el texto del informe se vea bien */
+    .whitespace-pre-wrap {
+        font-family: Arial, sans-serif !important;
+        font-size: 11pt !important;
+    }
+}

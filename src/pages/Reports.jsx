@@ -1,4 +1,3 @@
-// src/pages/Reports.jsx
 import React, {useState, useEffect, useRef} from 'react';
 import {motion} from 'framer-motion';
 import {
@@ -17,9 +16,10 @@ const DOCUMENT_TYPES_MAP = {
     incapacity: {label: 'Incapacidad', color: 'red', icon: ClipboardList}
 };
 
-const PAGE_SIZE = 5; // Constante para tamaño de página
+const PAGE_SIZE = 6; // Constante para tamaño de página
 
-const Reports = ({onViewDocument, notifications}) => { // Recibe notifications
+// CAMBIO: Recibir tenantMetadata en Reports
+const Reports = ({onViewDocument, notifications, tenantMetadata}) => {
     const [documents, setDocuments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -29,7 +29,7 @@ const Reports = ({onViewDocument, notifications}) => { // Recibe notifications
     const [currentPage, setCurrentPage] = useState(1);
     const [totalDocuments, setTotalDocuments] = useState(0);
 
-    const { success, error: notifyError, info } = notifications;
+    const {success, error: notifyError, info} = notifications;
 
     // Bandera para evitar la notificación en la primera carga
     const isInitialMount = useRef(true);
@@ -118,8 +118,6 @@ const Reports = ({onViewDocument, notifications}) => { // Recibe notifications
         label: val.label,
     }));
 
-    // CORRECCIÓN DE LA LÍNEA 175 (ya que ahora 'documents' es el array)
-    // Se mantiene el renderizado normal.
 
     return (
         <motion.div
@@ -128,7 +126,8 @@ const Reports = ({onViewDocument, notifications}) => { // Recibe notifications
             transition={{duration: 0.6}}
             className="space-y-6"
         >
-            <div className="flex justify-between items-center bg-white/70 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-gray-200/50">
+            <div
+                className="flex justify-between items-center bg-white/70 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-gray-200/50">
                 <h2 className="text-3xl font-bold text-gray-900">📄 Historial de Documentos Generados</h2>
                 <motion.button
                     onClick={handleManualLoad} // Llama a la función que notifica
@@ -140,7 +139,8 @@ const Reports = ({onViewDocument, notifications}) => { // Recibe notifications
             </div>
 
             {/* Filtros y Búsqueda */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-white/70 rounded-2xl shadow-md border border-gray-100">
+            <div
+                className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-white/70 rounded-2xl shadow-md border border-gray-100">
                 <div className="relative">
                     <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2"/>
                     <input
@@ -171,9 +171,11 @@ const Reports = ({onViewDocument, notifications}) => { // Recibe notifications
             </div>
 
             {loading ? (
-                <div className="text-center p-10 bg-white/80 rounded-2xl shadow-xl text-gray-600">Cargando reportes...</div>
+                <div className="text-center p-10 bg-white/80 rounded-2xl shadow-xl text-gray-600">Cargando
+                    reportes...</div>
             ) : error ? (
-                <div className="text-center p-10 bg-red-50/70 border border-red-200 rounded-2xl shadow-xl text-red-700 font-semibold">
+                <div
+                    className="text-center p-10 bg-red-50/70 border border-red-200 rounded-2xl shadow-xl text-red-700 font-semibold">
                     <AlertCircle className="w-6 h-6 mx-auto mb-3"/>
                     {error}
                 </div>
@@ -199,13 +201,15 @@ const Reports = ({onViewDocument, notifications}) => { // Recibe notifications
                                 whileHover={{scale: 1.005}}
                             >
                                 <div className="flex space-x-4 flex-1 min-w-0">
-                                    <div className={`p-3 rounded-xl bg-${typeConfig.color}-500/10 border border-${typeConfig.color}-200 flex items-center justify-center`}>
+                                    <div
+                                        className={`p-3 rounded-xl bg-${typeConfig.color}-500/10 border border-${typeConfig.color}-200 flex items-center justify-center`}>
                                         <DocIcon className={`w-6 h-6 text-${typeConfig.color}-600`}/>
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <h3 className="text-lg font-bold text-gray-900 truncate mb-1">{doc.title}</h3>
                                         <p className="text-gray-600 text-sm truncate max-w-full">
-                                            Paciente ID: <span className="font-semibold text-blue-600">{doc.clinical_meta.patient_id || 'N/A'}</span>
+                                            Paciente ID: <span
+                                            className="font-semibold text-blue-600">{doc.clinical_meta.patient_id || 'N/A'}</span>
                                         </p>
                                         <div className="flex items-center space-x-4 text-xs mt-2 text-gray-500">
                                             <div className="flex items-center space-x-1">
@@ -222,7 +226,8 @@ const Reports = ({onViewDocument, notifications}) => { // Recibe notifications
 
                                 {/* Acciones y Estado */}
                                 <div className="flex flex-col items-end space-y-2 flex-shrink-0">
-                                    <span className={`px-3 py-1 rounded-full text-xs font-semibold bg-${statusColor}-500/10 text-${statusColor}-700 border border-${statusColor}-200`}>
+                                    <span
+                                        className={`px-3 py-1 rounded-full text-xs font-semibold bg-${statusColor}-500/10 text-${statusColor}-700 border border-${statusColor}-200`}>
                                         {statusText}
                                     </span>
                                     <div className="flex space-x-2">
@@ -256,11 +261,13 @@ const Reports = ({onViewDocument, notifications}) => { // Recibe notifications
 
             {/* Componente de Paginación */}
             {!loading && totalPages > 1 && (
-                <PaginationControls
-                    currentPage={currentPage}
-                    totalPages={totalPages}
-                    onPageChange={handlePageChange}
-                />
+                <div className="mt-4">
+                    <PaginationControls
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        onPageChange={handlePageChange}
+                    />
+                </div>
             )}
         </motion.div>
     );
