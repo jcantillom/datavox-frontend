@@ -1,5 +1,5 @@
 // src/pages/Dashboard.jsx - VERSIÓN ULTRA-MODERNA (SOFT UI / LIGHT GLASSMORHPISM)
-import React, {useState, useEffect, useRef} from 'react'; // <-- Aseguramos useRef
+import React, {useState, useEffect} from 'react';
 import {motion} from 'framer-motion';
 import {
     Stethoscope, FileText, Users, Activity, LogOut, Mic, Calendar, Download, Settings, Bell,
@@ -69,9 +69,6 @@ const Dashboard = () => {
     // CORRECCIÓN: Desestructurar TODAS las funciones del hook de notificaciones
     const { notifications, removeNotification, error, success, system, info, ai, warning } = useNotification();
 
-    // NUEVO: Bandera para controlar la primera carga del Dashboard
-    const isInitialMount = useRef(true);
-
 
     // Datos de Estadísticas - Ahora realimenta de loadDashboardMetrics
     const [stats, setStats] = useState([
@@ -95,7 +92,6 @@ const Dashboard = () => {
     useEffect(() => {
         loadUserData();
         loadDashboardMetrics();
-        isInitialMount.current = false; // El montaje inicial ha terminado
         const timer = setInterval(() => setCurrentTime(new Date()), 60000);
         return () => clearInterval(timer);
     }, []);
@@ -151,18 +147,12 @@ const Dashboard = () => {
                 {action: `Dictados pendientes de revisar: ${pendingRevisionDesc.split(' ')[0]}`, time: 'Ahora', status: 'warning'},
             ]);
 
-            // CORRECCIÓN: Solo notificar si NO es la carga inicial
-            if (!isInitialMount.current) {
-                system('Métricas actualizadas. Sistema Estable.', 3000);
-            }
+            // CORRECCIÓN: Eliminamos la notificación SYSTEM de la carga de métricas para evitar duplicación.
+            // system('Métricas actualizadas. Sistema Estable.', 3000);
 
         } catch (err) {
             console.error('Error loading dashboard metrics:', err);
-            // CORRECCIÓN: Solo notificar si NO es la carga inicial
-            if (!isInitialMount.current) {
-                error('No se pudo conectar al sistema de métricas. Intente más tarde.', 8000);
-            }
-
+            error('No se pudo conectar al sistema de métricas. Intente más tarde.', 8000);
             setStats(prevStats => prevStats.map(stat => ({
                 ...stat,
                 value: 'Error',
@@ -189,8 +179,9 @@ const Dashboard = () => {
 
     // Función para manejar la vista del documento
     const handleViewDocument = (id) => {
+        // Establece el ID y cambia la sección si es necesario
         setDocumentViewId(id);
-        setActiveSection('reports');
+        setActiveSection('reports'); // Mantenemos la sección en reports
     };
 
     const handleBackToReports = () => {

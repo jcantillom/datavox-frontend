@@ -30,6 +30,7 @@ const Reports = ({onViewDocument, notifications}) => { // Recibe notifications
 
     useEffect(() => {
         // La primera carga (al montar el componente) NO debe notificar.
+        // Solo notifica si no es el primer montaje y los filtros han cambiado
         loadDocuments(false);
     }, [searchQuery, filterType]);
 
