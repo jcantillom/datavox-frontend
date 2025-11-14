@@ -106,6 +106,7 @@ const DocumentView = ({ documentId, onBack, notifications, tenantMetadata }) => 
         }
     };
 
+    // FUNCIÓN CLAVE: Limpieza y Descarga (PDF)
     const handleDownloadPdf = () => {
         if (!documentData.is_finalized) {
             notifications.warning("Debe Finalizar el documento para descargar la versión oficial.", 6000);
@@ -128,6 +129,7 @@ const DocumentView = ({ documentId, onBack, notifications, tenantMetadata }) => 
         notifications.info("Abriendo diálogo de impresión. Seleccione 'Guardar como PDF'.", 5000);
     }
 
+    // FUNCIÓN CLAVE: Filtrar metadata interna del informe de texto antes de imprimir
     const getCleanContent = () => {
         if (!documentData || !documentData.content) return '';
 
@@ -142,12 +144,29 @@ const DocumentView = ({ documentId, onBack, notifications, tenantMetadata }) => 
         return cleanContent.trim();
     };
 
+    // Nueva función para mostrar los datos del paciente de forma elegante en el PDF
+    const getPrintPatientData = () => {
+        const patientId = documentData.clinical_meta?.patient_id || 'N/A';
+        const doctorName = documentData.clinical_meta?.doctor_name || 'N/A';
+        const subject = documentData.clinical_meta?.clinical_subject || 'N/A';
+        const date = new Date(documentData.created_at).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
+
+        return (
+            <div className="grid grid-cols-2 gap-y-1 gap-x-6 text-sm text-gray-700 print:text-black mt-4">
+                <p><User className="inline-block w-4 h-4 mr-1 align-middle text-indigo-600" /><span className="font-semibold">Paciente ID:</span> {patientId}</p>
+                <p className="text-right"><Stethoscope className="inline-block w-4 h-4 mr-1 align-middle text-indigo-600" /><span className="font-semibold">Médico:</span> {doctorName}</p>
+                <p><AlignLeft className="inline-block w-4 h-4 mr-1 align-middle text-indigo-600" /><span className="font-semibold">Asunto:</span> {subject}</p>
+                <p className="text-right"><Calendar className="inline-block w-4 h-4 mr-1 align-middle text-indigo-600" /><span className="font-semibold">Fecha:</span> {date}</p>
+            </div>
+        );
+    };
+
     const getPrintFooter = () => {
         const legalId = tenantMetadata?.meta?.legal_id || 'N/A';
         const institutionName = tenantMetadata?.name || 'Institución Médica';
 
         return (
-            <div className="print-footer text-center text-xs text-gray-600 mt-8 pt-4 border-t border-gray-200">
+            <div className="print-footer text-center text-xs text-gray-600 mt-8 pt-4 border-t border-gray-300">
                 <p className="font-semibold text-gray-700">{institutionName}</p>
                 <p className="mt-1 flex items-center justify-center">
                     <Mail className="inline-block w-3 h-3 mr-1 align-middle" /> contact@datavox.com
@@ -226,12 +245,12 @@ const DocumentView = ({ documentId, onBack, notifications, tenantMetadata }) => 
             {/* Contenido Principal (Lo que se imprimirá/editará) */}
             <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-6 shadow-xl border border-gray-200/50 print:shadow-none print:p-0 print:border-none">
 
-                {/* --- Membrete VISUAL (Solo para vista de edición) --- */}
+                {/* Membrete VISUAL (Solo para vista de edición) */}
                 <div className="print:hidden">
                     <MembreteHeader tenantMetadata={tenantMetadata} isPrintMode={false} />
                 </div>
 
-                <div className="p-6 print:p-0 print:m-0">
+                <div className="p-6 print:p-8 print:m-0">
 
                     {/* Bloque de Metadata de React (OCULTAR para impresión) */}
                     <div className="grid grid-cols-3 gap-4 mb-6 pb-4 border-b border-gray-200 print:hidden">
@@ -265,40 +284,28 @@ const DocumentView = ({ documentId, onBack, notifications, tenantMetadata }) => 
                             className="w-full min-h-[400px] p-4 border border-gray-100 bg-gray-50 rounded-lg overflow-y-auto shadow-inner text-gray-800 whitespace-pre-wrap text-sm print:shadow-none print:bg-white print:border-none print:p-0 print:text-black print:overflow-visible print:min-h-auto print:whitespace-pre-line">
 
                             {/* --- CONTENIDO ESPECÍFICO PARA IMPRESIÓN (PDF) --- */}
-                            <div className="hidden print:block print:p-8 print:m-0 print:w-full print:h-full print:flex print:flex-col">
-                                {/* Membrete Superior para PDF (Gestionado por MembreteHeader) */}
+                            <div className="hidden print:block print:p-0 print:m-0 print:w-full print:h-full print:flex print:flex-col">
+
+                                {/* Membrete Superior para PDF (Diseño 4.0) */}
                                 <MembreteHeader tenantMetadata={tenantMetadata} isPrintMode={true} />
 
                                 {/* Encabezado del Tipo de Documento y Datos */}
                                 <div className="text-left mb-6 mt-4">
-                                    <div className="flex items-center space-x-4 mb-3">
-                                        <div className={`w-10 h-10 bg-gradient-to-br from-${docConfig.color}-500 to-${docConfig.color}-400 flex items-center justify-center rounded-md shadow-md`}>
+                                    {/* Título Principal */}
+                                    <div className="flex items-center space-x-4 mb-4">
+                                        <div className={`w-12 h-12 bg-gradient-to-br from-indigo-600 to-cyan-500 flex items-center justify-center rounded-lg shadow-md`}>
                                             {React.createElement(docConfig.dual_icon, { className: `w-6 h-6 text-white` })}
                                         </div>
-                                        <h2 className="text-2xl font-bold text-gray-800">{docConfig.label}</h2>
+                                        <h1 className="text-3xl font-extrabold text-indigo-700 tracking-tight">{docConfig.label}</h1>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-2 text-sm text-gray-700">
-                                        <p><User className="inline-block w-3 h-3 mr-1 align-middle" /><span className="font-semibold">Paciente ID:</span> {documentData.clinical_meta?.patient_id || 'N/A'}</p>
-                                        <p className="text-right"><Stethoscope className="inline-block w-3 h-3 mr-1 align-middle" /><span className="font-semibold">Médico:</span> {documentData.clinical_meta?.doctor_name || 'N/A'}</p>
-                                        <p><AlignLeft className="inline-block w-3 h-3 mr-1 align-middle" /><span className="font-semibold">Asunto:</span> {documentData.clinical_meta?.clinical_subject || 'N/A'}</p>
-                                        <p className="text-right"><Calendar className="inline-block w-3 h-3 mr-1 align-middle" /><span className="font-semibold">Fecha:</span> {new Date(documentData.created_at).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                                    </div>
-                                    <hr className="my-4 border-gray-200" />
+
+                                    {/* Datos del Paciente/Documento */}
+                                    {getPrintPatientData()}
                                 </div>
 
                                 {/* Contenido principal del informe */}
                                 <div className="flex-grow text-base text-gray-800 leading-relaxed mb-6">
                                     {getCleanContent()}
-
-                                    {/* Validaciones de IA y Doctor al final del contenido */}
-                                    <div className="mt-8 pt-4 border-t border-gray-100 text-sm text-gray-700 italic">
-                                        {documentData.clinical_meta?.ia_validation === false && (
-                                            <p className="flex items-center text-red-600"><AlertTriangle className="w-4 h-4 mr-2" />Revisión IA: Pendiente o Inconsistente.</p>
-                                        )}
-                                        {documentData.clinical_meta?.doctor_validation === true && (
-                                            <p className="flex items-center text-emerald-600"><CheckCircle className="w-4 h-4 mr-2" />Validado y Aprobado por: {documentData.clinical_meta.doctor_name}</p>
-                                        )}
-                                    </div>
                                 </div>
 
                                 {/* Pie de página para PDF */}
