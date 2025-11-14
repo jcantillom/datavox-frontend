@@ -29,8 +29,8 @@ const Footer = () => {
 
     const contactInfo = [
         {icon: Mail, text: 'info@datavoxmedical.com'},
-        {icon: Phone, text: '+1 (555) 123-4567'},
-        {icon: MapPin, text: 'Medellín, Colombia'},
+        {icon: Phone, text: '+57 (301) 4613592'},
+        {icon: MapPin, text: 'Bogota, Colombia'},
     ];
 
     return (
