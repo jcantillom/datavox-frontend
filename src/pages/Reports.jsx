@@ -1,4 +1,4 @@
-// src/pages/Reports.jsx – LISTADO CLÍNICO MODERNO
+// src/pages/Reports.jsx – LISTADO CLÍNICO MODERNO (AJUSTADO)
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
@@ -58,7 +58,6 @@ const Reports = ({ onViewDocument, notifications }) => {
     const { success, error: notifyError, info } = notifications;
 
     useEffect(() => {
-        // al cambiar filtros, volvemos a página 1
         if (currentPage !== 1) {
             setCurrentPage(1);
         } else {
@@ -150,7 +149,6 @@ const Reports = ({ onViewDocument, notifications }) => {
         return `Hace ${diffDays} días`;
     };
 
-    // contadores para tarjetas de estado (sobre la página actual)
     const finalizedCount = documents.filter(d => d.is_finalized).length;
     const syncedCount = documents.filter(d => d.is_synced).length;
     const pendingHisCount = documents.filter(d => d.is_finalized && !d.is_synced).length;
@@ -162,35 +160,38 @@ const Reports = ({ onViewDocument, notifications }) => {
             transition={{ duration: 0.6 }}
             className="space-y-6"
         >
-            {/* HEADER CLÍNICO CLARO */}
-            <div className="bg-gradient-to-r from-sky-50 via-blue-50 to-cyan-50 rounded-3xl p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)] border border-blue-100">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/25">
-                            <FileCheck className="w-7 h-7 text-white" />
+            {/* HEADER CLÍNICO con gradiente más dinámico */}
+            <div className="relative rounded-3xl shadow-[0_18px_45px_rgba(15,23,42,0.08)] border border-blue-100 overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-sky-50 via-blue-100 to-cyan-50" />
+                <div className="relative z-10 p-6">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                                <FileCheck className="w-7 h-7 text-white" />
+                            </div>
+                            <div>
+                                <p className="text-[0.7rem] font-semibold tracking-[0.25em] uppercase text-slate-500 mb-1">
+                                    Monitor clínico
+                                </p>
+                                <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 leading-tight">
+                                    Gestión de Documentos Clínicos
+                                </h1>
+                                <p className="text-sm text-slate-600 mt-1">
+                                    Revise, filtre y sincronice informes, historias y certificados generados en la plataforma.
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-[0.7rem] font-semibold tracking-[0.25em] uppercase text-slate-500 mb-1">
-                                Monitor clínico
-                            </p>
-                            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 leading-tight">
-                                Gestión de Documentos Clínicos
-                            </h1>
-                            <p className="text-sm text-slate-600 mt-1">
-                                Revise, filtre y sincronice informes, historias y certificados generados en la plataforma.
-                            </p>
-                        </div>
-                    </div>
 
-                    <motion.button
-                        onClick={handleRefreshLoad}
-                        className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white text-slate-800 rounded-xl text-sm font-semibold border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-200 hover:text-blue-700 transition-all duration-200"
-                        whileHover={{ scale: 1.03 }}
-                        whileTap={{ scale: 0.97 }}
-                    >
-                        <RotateCcw className="w-4 h-4" />
-                        <span>Actualizar listado</span>
-                    </motion.button>
+                        <motion.button
+                            onClick={handleRefreshLoad}
+                            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white/80 text-slate-900 rounded-xl text-sm font-semibold border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-200 hover:text-blue-700 transition-all duration-200"
+                            whileHover={{ scale: 1.03 }}
+                            whileTap={{ scale: 0.97 }}
+                        >
+                            <RotateCcw className="w-4 h-4" />
+                            <span>Actualizar listado</span>
+                        </motion.button>
+                    </div>
                 </div>
             </div>
 
@@ -237,7 +238,7 @@ const Reports = ({ onViewDocument, notifications }) => {
                 </div>
             </div>
 
-            {/* FILTROS – SIN BOTÓN APLICAR */}
+            {/* FILTROS */}
             <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-5 shadow-lg border border-slate-200/60">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-center">
                     <div className="relative">
@@ -326,19 +327,11 @@ const Reports = ({ onViewDocument, notifications }) => {
                             ? `${patientName} / ${patientId}`
                             : patientId;
 
-                        // Título principal = asunto del estudio
+                        const typeLabel = typeConfig.label;
                         const subject =
                             doc.clinical_meta?.clinical_subject ||
                             doc.title ||
-                            typeConfig.label;
-
-                        // Resumen: sólo se muestra si es distinto al asunto
-                        const summary =
-                            doc.clinical_meta?.clinical_summary || doc.summary || '';
-                        const showSummary =
-                            summary &&
-                            summary.trim().length > 0 &&
-                            summary.trim() !== subject.trim();
+                            '';
 
                         return (
                             <motion.div
@@ -351,7 +344,6 @@ const Reports = ({ onViewDocument, notifications }) => {
                                     <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                                         {/* IZQUIERDA: icono + info principal */}
                                         <div className="flex items-start gap-4 flex-1 min-w-0">
-                                            {/* Icono tipo documento */}
                                             <div className="relative flex-shrink-0">
                                                 <div
                                                     className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${typeConfig.gradient} flex items-center justify-center shadow-lg`}
@@ -365,7 +357,6 @@ const Reports = ({ onViewDocument, notifications }) => {
                                                 </div>
                                             </div>
 
-                                            {/* Texto principal */}
                                             <div className="flex-1 min-w-0 space-y-2">
                                                 {/* Paciente + Estado */}
                                                 <div className="flex flex-wrap items-center gap-2">
@@ -382,18 +373,17 @@ const Reports = ({ onViewDocument, notifications }) => {
                                                     </span>
                                                 </div>
 
-                                                {/* Asunto (título grande) */}
+                                                {/* Título grande = TIPO DOCUMENTO */}
                                                 <h3 className="text-base md:text-lg font-bold text-slate-900 leading-snug truncate">
-                                                    {subject}
+                                                    {typeLabel}
                                                 </h3>
 
-                                                {/* Tipo de documento */}
-                                                <p className="text-[0.7rem] font-semibold tracking-[0.25em] uppercase text-slate-400">
-                                                    {typeConfig.label}
-                                                </p>
-
-                                                {/* Metadatos: médico, resumen, fecha */}
+                                                {/* Metadatos en 3 columnas:
+                                                    1. Médico
+                                                    2. Asunto (centrado visualmente)
+                                                    3. Fecha (centrado) */}
                                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs md:text-[0.78rem] mt-1">
+                                                    {/* Médico */}
                                                     <div className="flex items-start gap-2">
                                                         <Briefcase className="w-4 h-4 text-purple-500 flex-shrink-0 mt-[2px]" />
                                                         <div>
@@ -407,23 +397,23 @@ const Reports = ({ onViewDocument, notifications }) => {
                                                         </div>
                                                     </div>
 
-                                                    {showSummary && (
-                                                        <div className="flex items-start gap-2">
-                                                            <AlignLeft className="w-4 h-4 text-orange-500 flex-shrink-0 mt-[2px]" />
-                                                            <div>
-                                                                <p className="text-[0.65rem] font-semibold text-slate-500">
-                                                                    RESUMEN
-                                                                </p>
-                                                                <p className="text-slate-900 font-medium line-clamp-2">
-                                                                    {summary}
-                                                                </p>
-                                                            </div>
+                                                    {/* Asunto en la columna central */}
+                                                    <div className="flex items-start gap-2 md:justify-center">
+                                                        <AlignLeft className="w-4 h-4 text-orange-500 flex-shrink-0 mt-[2px]" />
+                                                        <div className="md:text-center">
+                                                            <p className="text-[0.65rem] font-semibold text-slate-500">
+                                                                ASUNTO
+                                                            </p>
+                                                            <p className="text-slate-900 font-medium line-clamp-2">
+                                                                {subject || 'Sin asunto específico'}
+                                                            </p>
                                                         </div>
-                                                    )}
+                                                    </div>
 
-                                                    <div className="flex items-start gap-2">
+                                                    {/* Fecha, más centrada */}
+                                                    <div className="flex items-start gap-2 md:justify-center">
                                                         <Calendar className="w-4 h-4 text-teal-500 flex-shrink-0 mt-[2px]" />
-                                                        <div>
+                                                        <div className="md:text-center">
                                                             <p className="text-[0.65rem] font-semibold text-slate-500">
                                                                 FECHA DE CREACIÓN
                                                             </p>
@@ -462,7 +452,7 @@ const Reports = ({ onViewDocument, notifications }) => {
                                                 {!doc.is_synced && doc.is_finalized && (
                                                     <motion.button
                                                         onClick={() =>
-                                                            handleExportToHis(doc.id, subject)
+                                                            handleExportToHis(doc.id, subject || typeLabel)
                                                         }
                                                         className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl text-xs font-medium hover:bg-slate-50 transition-all duration-200"
                                                         whileHover={{ scale: 1.05 }}
@@ -477,7 +467,7 @@ const Reports = ({ onViewDocument, notifications }) => {
                                     </div>
 
                                     {/* PIE: ID + HORA */}
-                                    <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[0.7rem] text-slate-500">
+                                    <div className="mt-4 pt-3 border-top border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[0.7rem] text-slate-500 border-t">
                                         <div className="flex items-center gap-2 min-w-0">
                                             <Activity className="w-3.5 h-3.5" />
                                             <span className="font-mono truncate max-w-xs">
@@ -499,7 +489,6 @@ const Reports = ({ onViewDocument, notifications }) => {
                 </motion.div>
             )}
 
-            {/* PAGINACIÓN */}
             {!loading && totalPages > 1 && (
                 <div className="mt-6">
                     <PaginationControls
