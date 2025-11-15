@@ -3,18 +3,18 @@ import {motion} from 'framer-motion';
 import {
     FileText, Search, User, Clock, CheckCircle, AlertCircle, Radiation,
     Stethoscope, Pill, Download, MessageSquare, ClipboardList, RotateCcw,
-    Upload, Edit3 // Añadimos Upload para el icono de exportar
+    Upload, Edit3, Briefcase, Calendar, AlignLeft, Send, Check
 } from 'lucide-react';
 import {clinicalService} from '../services/clinical';
 import PaginationControls from '../components/ui/PaginationControls';
 
 // Definición de tipos de documentos (para color y mapeo)
 const DOCUMENT_TYPES_MAP = {
-    clinical_history: {label: 'Historia Clínica', color: 'indigo', icon: Stethoscope, gradient: 'from-indigo-500 to-blue-500'},
-    radiology_report: {label: 'Informe Radiológico', color: 'amber', icon: Radiation, gradient: 'from-amber-500 to-orange-500'},
-    medical_prescription: {label: 'Fórmula Médica', color: 'emerald', icon: Pill, gradient: 'from-emerald-500 to-green-500'},
-    medical_certificate: {label: 'Certificado Médico', color: 'purple', icon: FileText, gradient: 'from-purple-500 to-pink-500'},
-    incapacity: {label: 'Incapacidad', color: 'red', icon: ClipboardList, gradient: 'from-red-500 to-pink-500'}
+    clinical_history: {label: 'Historia Clínica', color: 'indigo', icon: Stethoscope},
+    radiology_report: {label: 'Informe Radiológico', color: 'amber', icon: Radiation},
+    medical_prescription: {label: 'Fórmula Médica', color: 'emerald', icon: Pill},
+    medical_certificate: {label: 'Certificado Médico', color: 'purple', icon: FileText},
+    incapacity: {label: 'Incapacidad', color: 'red', icon: ClipboardList}
 };
 
 const PAGE_SIZE = 6; // Constante para tamaño de página
@@ -25,33 +25,25 @@ const Reports = ({onViewDocument, notifications, tenantMetadata}) => {
     const [error, setError] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState('');
-    // NUEVOS ESTADOS DE PAGINACIÓN
     const [currentPage, setCurrentPage] = useState(1);
     const [totalDocuments, setTotalDocuments] = useState(0);
 
     const {success, error: notifyError, info} = notifications;
 
-    // Bandera para evitar la notificación en la primera carga
-    const isInitialMount = useRef(true);
-
-    // **CAMBIO CLAVE 1:** Este efecto ahora controla la recarga automática al cambiar filtros.
     useEffect(() => {
         // Al cambiar los filtros o el query, reiniciamos a la página 1.
         if (currentPage !== 1) {
             setCurrentPage(1);
         } else {
-            // Si ya estamos en la página 1, cargamos inmediatamente.
             loadDocuments(false);
         }
     }, [searchQuery, filterType]);
 
-    // **CAMBIO CLAVE 2:** Este efecto se dispara solo cuando cambia la página.
     useEffect(() => {
-        // Este efecto recarga si currentPage cambia (por paginador) o si es la carga inicial.
         loadDocuments(false);
     }, [currentPage]);
 
-    // Función modificada para controlar la notificación
+    // Función modificada para controlar la recarga
     const loadDocuments = async (notifyOnComplete = true) => {
         setLoading(true);
         setError(null);
@@ -59,8 +51,8 @@ const Reports = ({onViewDocument, notifications, tenantMetadata}) => {
             const filters = {
                 q: searchQuery,
                 document_type: filterType,
-                page: currentPage, // USAR currentPage
-                pageSize: PAGE_SIZE, // USAR PAGE_SIZE
+                page: currentPage,
+                pageSize: PAGE_SIZE,
             };
 
             const result = await clinicalService.listDocuments(filters);
@@ -82,12 +74,27 @@ const Reports = ({onViewDocument, notifications, tenantMetadata}) => {
         }
     };
 
-    // Función que se llama con el botón "Aplicar Filtros" y "Actualizar"
     const handleRefreshLoad = () => {
         if (currentPage !== 1) {
-            setCurrentPage(1); // Esto dispara el useEffect y luego loadDocuments(false)
+            setCurrentPage(1);
         } else {
-            loadDocuments(true); // Recarga la página actual con notificación
+            loadDocuments(true);
+        }
+    }
+
+    const handleExportToHis = async (docId, title) => {
+        try {
+            setLoading(true);
+            info(`Iniciando exportación de "${title}"...`, 5000);
+            const response = await clinicalService.exportDocument(docId);
+
+            loadDocuments(false);
+
+            success(`Documento "${title}" enviado al HIS (Proceso Asíncrono Iniciado).`, 7000);
+        } catch (e) {
+            notifyError(`Fallo en exportación: ${e.message}`, 8000);
+        } finally {
+            setLoading(false);
         }
     }
 
@@ -98,22 +105,6 @@ const Reports = ({onViewDocument, notifications, tenantMetadata}) => {
             setCurrentPage(page);
         }
     };
-
-    const handleExportToHis = async (docId, title) => {
-        try {
-            setLoading(true);
-            info(`Iniciando exportación de "${title}"...`, 5000);
-            const response = await clinicalService.exportDocument(docId);
-
-            loadDocuments(false); // Recarga sutil tras la acción
-
-            success(`Documento "${title}" enviado al HIS (Proceso Asíncrono Iniciado).`, 7000);
-        } catch (e) {
-            notifyError(`Fallo en exportación: ${e.message}`, 8000);
-        } finally {
-            setLoading(false);
-        }
-    }
 
     const docTypeOptions = Object.entries(DOCUMENT_TYPES_MAP).map(([key, val]) => ({
         value: key,
@@ -132,7 +123,7 @@ const Reports = ({onViewDocument, notifications, tenantMetadata}) => {
                 className="flex justify-between items-center bg-white/70 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-gray-200/50">
                 <h2 className="text-3xl font-bold text-gray-900">📄 Historial de Documentos Generados</h2>
                 <motion.button
-                    onClick={handleRefreshLoad} // Usamos la nueva función para recargar/notificar
+                    onClick={handleRefreshLoad}
                     className="p-3 bg-indigo-500/10 text-indigo-600 rounded-full hover:bg-indigo-500/20 transition-colors"
                     whileHover={{rotate: 90}}
                 >
@@ -142,7 +133,7 @@ const Reports = ({onViewDocument, notifications, tenantMetadata}) => {
 
             {/* Filtros y Búsqueda */}
             <div
-                className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-white/70 rounded-2xl shadow-md border border-gray-100">
+                className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gradient-to-br from-white to-blue-50 rounded-2xl shadow-inner border border-gray-100">
                 <div className="relative">
                     <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2"/>
                     <input
@@ -150,13 +141,13 @@ const Reports = ({onViewDocument, notifications, tenantMetadata}) => {
                         placeholder="Buscar por paciente o contenido..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10 pr-4 py-2.5 bg-white border border-gray-300 rounded-xl w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="pl-10 pr-4 py-2.5 bg-white border border-gray-300 rounded-xl w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                     />
                 </div>
                 <select
                     value={filterType}
                     onChange={(e) => setFilterType(e.target.value)}
-                    className="px-4 py-2.5 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
+                    className="px-4 py-2.5 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700 transition-all duration-200"
                 >
                     <option value="">Todos los Tipos</option>
                     {docTypeOptions.map(opt => (
@@ -179,92 +170,115 @@ const Reports = ({onViewDocument, notifications, tenantMetadata}) => {
                     No se encontraron documentos con los filtros aplicados.
                 </div>
             ) : (
-                <div className="space-y-4">
+                <motion.div
+                    className="space-y-4"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ staggerChildren: 0.05 }}
+                >
+                    {/* Listado de Tarjetas */}
                     {documents.map((doc) => {
-                        // Obtenemos la configuración completa, incluyendo el nuevo degradado
                         const typeConfig = DOCUMENT_TYPES_MAP[doc.document_type] || DOCUMENT_TYPES_MAP.clinical_history;
                         const DocIcon = typeConfig.icon;
-                        const statusColor = doc.is_synced ? 'emerald' : doc.is_finalized ? 'blue' : 'amber';
+
+                        const statusColor = doc.is_synced ? 'emerald' : doc.is_finalized ? 'indigo' : 'amber';
                         const statusText = doc.is_synced ? 'Sincronizado HIS' : doc.is_finalized ? 'Finalizado' : 'Borrador';
 
                         return (
                             <motion.div
                                 key={doc.id}
-                                initial={{opacity: 0, y: 10}}
+                                initial={{opacity: 0, y: 15}}
                                 animate={{opacity: 1, y: 0}}
-                                className="bg-white rounded-2xl p-5 shadow-xl border-2 border-slate-100 hover:border-blue-100 transition-all flex justify-between items-center"
-                                whileHover={{scale: 1.005, y: -2}}
+                                // ESTILO NEUMÓRFICO Y GRADIENTE DE ALTO RELIEVE
+                                className={`bg-gradient-to-br from-white to-blue-50 rounded-2xl p-4 shadow-2xl border-2 border-transparent 
+                                            transition-all duration-500 relative overflow-hidden group 
+                                            hover:border-${typeConfig.color}-300 hover:shadow-blue-300/30`}
+                                whileHover={{scale: 1.01, y: -2}}
                             >
-                                <div className="flex space-x-5 flex-1 min-w-0 items-center">
-                                    {/* Ícono de Documento con Degradado y Sombra Moderna */}
+                                {/* Línea vertical de acento */}
+                                <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-${typeConfig.color}-500 to-cyan-500 rounded-l-xl opacity-80 group-hover:w-2 transition-all duration-300`}></div>
+
+                                <div className="flex space-x-4 flex-1 min-w-0 items-center pl-2">
+                                    {/* Icono de Tipo - Diseño 3D */}
                                     <div
-                                        className={`w-12 h-12 rounded-xl bg-gradient-to-br ${typeConfig.gradient} flex items-center justify-center shadow-lg shadow-${typeConfig.color}-500/20`}>
-                                        <DocIcon className="w-6 h-6 text-white"/>
+                                        className={`p-3 rounded-full bg-gradient-to-br from-white to-slate-50 flex items-center justify-center 
+                                                    shadow-inner shadow-slate-300/50 border border-gray-200`}>
+                                        <DocIcon className={`w-6 h-6 text-${typeConfig.color}-600`}/>
                                     </div>
 
                                     <div className="flex-1 min-w-0">
-                                        <h3 className="text-lg font-bold text-gray-900 truncate mb-1">{doc.title}</h3>
-                                        <p className="text-gray-600 text-sm truncate max-w-full font-medium">
-                                            <span className="font-semibold text-slate-800">Paciente:</span> {doc.clinical_meta.patient_id || 'N/A'}
-                                        </p>
-                                    </div>
-                                </div>
+                                        {/* FILA 1: PACIENTE Y TIPO DE REPORTE */}
+                                        <div className="flex justify-between items-center mb-1">
+                                            {/* Paciente (Grande y en Negrita) */}
+                                            <p className="text-lg font-extrabold text-indigo-700 leading-none">
+                                                <User className="w-5 h-5 inline mr-2 align-sub"/>
+                                                {doc.clinical_meta.patient_id || 'N/A'}
+                                            </p>
 
-                                {/* Metadata y Acciones */}
-                                <div className="flex space-x-6 flex-shrink-0 items-center">
-                                    {/* Información Detallada (Médico y Fecha) */}
-                                    <div className="text-sm text-right space-y-1 text-gray-600 hidden sm:block">
-                                        <p className="flex items-center space-x-1 justify-end font-medium">
-                                            <Stethoscope className="w-4 h-4 text-indigo-500"/>
-                                            <span>{doc.clinical_meta.doctor_name || 'Desconocido'}</span>
-                                        </p>
-                                        <p className="flex items-center space-x-1 justify-end text-xs">
-                                            <Clock className="w-3 h-3 text-slate-400"/>
-                                            <span>{new Date(doc.created_at).toLocaleDateString()}</span>
-                                        </p>
-                                    </div>
+                                            {/* Título (Tipo de Estudio) */}
+                                            <h3 className="text-base font-bold text-gray-900 truncate">
+                                                {doc.title}
+                                            </h3>
+                                        </div>
 
-                                    {/* Estado */}
-                                    <span
-                                        className={`px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm ${
-                                            statusColor === 'emerald' ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-200' :
-                                                statusColor === 'blue' ? 'bg-blue-500/10 text-blue-700 border border-blue-200' :
-                                                    'bg-amber-500/10 text-amber-700 border border-amber-200'
-                                        }`}
-                                    >
-                                        {statusText}
-                                    </span>
+                                        {/* FILA 2: METADATOS CLAVE (CENTRADO) */}
+                                        <div className="flex justify-between items-center text-sm text-gray-600 mb-2 p-1 bg-gray-100/50 rounded-lg border border-gray-200/50">
+                                            <p className="flex items-center space-x-1 font-semibold text-purple-600">
+                                                <Briefcase className="w-3 h-3"/>
+                                                <span>{doc.clinical_meta.doctor_name || 'Desconocido'}</span>
+                                            </p>
+                                            <p className="flex items-center space-x-1 font-semibold text-teal-600">
+                                                <Calendar className="w-3 h-3"/>
+                                                <span>{new Date(doc.created_at).toLocaleDateString()}</span>
+                                            </p>
+                                            <p className="flex items-center space-x-1 font-semibold text-red-600">
+                                                <AlignLeft className="w-3 h-3"/>
+                                                <span className="truncate max-w-[120px]">Asunto: {doc.clinical_meta.clinical_subject || 'N/A'}</span>
+                                            </p>
+                                        </div>
 
-                                    {/* Botones de Acción */}
-                                    <div className="flex space-x-2">
-                                        {/* Botón de Ver/Editar */}
-                                        <motion.button
-                                            title="Ver/Editar Documento"
-                                            className="p-3 bg-indigo-500/10 rounded-full text-indigo-600 hover:bg-indigo-100 transition-colors shadow-md"
-                                            whileHover={{scale: 1.1}}
-                                            onClick={() => onViewDocument(doc.id)}
-                                        >
-                                            <Edit3 className="w-5 h-5"/>
-                                        </motion.button>
+                                        {/* FILA 3: ESTADO Y ACCIONES */}
+                                        <div className="flex justify-between items-center pt-1">
+                                            {/* Estado del Documento */}
+                                            <span
+                                                className={`px-3 py-1 rounded-full text-xs font-bold shadow-sm ${statusColor === 'indigo' ? 'bg-indigo-500/15 text-indigo-700' : statusColor === 'emerald' ? 'bg-emerald-500/15 text-emerald-700' : 'bg-amber-500/15 text-amber-700'}`}>
+                                                {statusText}
+                                            </span>
 
-                                        {/* Botón de Exportar/Subir al HIS */}
-                                        {!doc.is_synced && doc.is_finalized && (
-                                            <motion.button
-                                                title="Subir a HIS"
-                                                className="p-3 bg-emerald-500/10 rounded-full text-emerald-600 hover:bg-emerald-100 transition-colors shadow-md"
-                                                whileHover={{scale: 1.1}}
-                                                onClick={() => handleExportToHis(doc.id, doc.title)}
-                                            >
-                                                {/* CAMBIO CLAVE: Usamos Upload para representar la acción de Sincronizar/Subir */}
-                                                <Upload className="w-5 h-5"/>
-                                            </motion.button>
-                                        )}
+                                            {/* Botones de Acción Agrupados */}
+                                            <div className="flex space-x-2">
+
+                                                {/* Botón Exportar/Sincronizar (Upload) */}
+                                                {!doc.is_synced && doc.is_finalized && (
+                                                    <motion.button
+                                                        title="Sincronizar con HIS"
+                                                        className="p-2 bg-white rounded-full text-indigo-600 hover:bg-indigo-700 hover:text-white transition-all shadow-md hover:shadow-lg hover:bg-gradient-to-r from-indigo-500 to-purple-500"
+                                                        whileHover={{scale: 1.1}}
+                                                        whileTap={{scale: 0.95}}
+                                                        onClick={() => handleExportToHis(doc.id, doc.title)}
+                                                    >
+                                                        <Upload className="w-4 h-4"/>
+                                                    </motion.button>
+                                                )}
+
+                                                {/* Botón Ver/Editar */}
+                                                <motion.button
+                                                    title="Revisar Documento"
+                                                    className="p-2 bg-white rounded-full text-blue-600 hover:bg-blue-100 transition-colors shadow-md hover:shadow-lg"
+                                                    whileHover={{scale: 1.1}}
+                                                    onClick={() => onViewDocument(doc.id)}
+                                                >
+                                                    <MessageSquare className="w-4 h-4"/>
+                                                </motion.button>
+
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </motion.div>
                         );
                     })}
-                </div>
+                </motion.div>
             )}
 
             {/* Componente de Paginación */}
