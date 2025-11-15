@@ -1,64 +1,47 @@
-// src/pages/Reports.jsx – LISTADO PRO / MODERNO
+// src/pages/Reports.jsx – LISTADO CLÍNICO MODERNO
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-    FileText,
-    Search,
-    User,
-    CheckCircle,
-    AlertCircle,
-    Radiation,
-    Stethoscope,
-    Pill,
-    MessageSquare,
-    ClipboardList,
-    RotateCcw,
-    Upload,
-    Edit3,
-    Briefcase,
-    Calendar,
-    AlignLeft,
-    Shield,
-    Database,
-    Activity,
-    FileCheck,
+    FileText, Search, User, CheckCircle, AlertCircle, Radiation,
+    Stethoscope, Pill, MessageSquare, ClipboardList, RotateCcw,
+    Upload, Edit3, Briefcase, Calendar, AlignLeft,
+    Shield, FileCheck, Database, Activity
 } from 'lucide-react';
 import { clinicalService } from '../services/clinical';
 import PaginationControls from '../components/ui/PaginationControls';
 
-// Tipos de documento
 const DOCUMENT_TYPES_MAP = {
     clinical_history: {
         label: 'Historia Clínica',
         color: 'blue',
         icon: Stethoscope,
-        gradient: 'from-blue-500 to-cyan-500',
+        gradient: 'from-blue-500 to-cyan-500'
     },
     radiology_report: {
         label: 'Informe Radiológico',
         color: 'amber',
         icon: Radiation,
-        gradient: 'from-amber-500 to-orange-500',
+        gradient: 'from-amber-500 to-orange-500'
     },
     medical_prescription: {
         label: 'Fórmula Médica',
         color: 'emerald',
         icon: Pill,
-        gradient: 'from-emerald-500 to-green-500',
+        gradient: 'from-emerald-500 to-green-500'
     },
     medical_certificate: {
         label: 'Certificado Médico',
         color: 'purple',
         icon: FileText,
-        gradient: 'from-purple-500 to-pink-500',
+        gradient: 'from-purple-500 to-pink-500'
     },
     incapacity: {
         label: 'Incapacidad',
         color: 'red',
         icon: ClipboardList,
-        gradient: 'from-red-500 to-pink-500',
-    },
+        gradient: 'from-red-500 to-pink-500'
+    }
 };
 
 const PAGE_SIZE = 6;
@@ -92,13 +75,12 @@ const Reports = ({ onViewDocument, notifications }) => {
     const loadDocuments = async (notifyOnComplete = true) => {
         setLoading(true);
         setError(null);
-
         try {
             const filters = {
                 q: searchQuery,
                 document_type: filterType,
                 page: currentPage,
-                pageSize: PAGE_SIZE,
+                pageSize: PAGE_SIZE
             };
 
             const result = await clinicalService.listDocuments(filters);
@@ -106,18 +88,12 @@ const Reports = ({ onViewDocument, notifications }) => {
             setTotalDocuments(result.total || 0);
 
             if (notifyOnComplete) {
-                info(
-                    `Listado actualizado. ${result.total || 0} documentos encontrados.`,
-                    3000
-                );
+                info(`Listado actualizado. ${result.total} documentos encontrados.`, 3000);
             }
         } catch (err) {
             console.error('Error cargando documentos:', err);
             setError('No se pudieron cargar los reportes clínicos.');
-            notifyError(
-                'Error de conexión: No se pudieron cargar los reportes.',
-                8000
-            );
+            notifyError('Error de conexión: No se pudieron cargar los reportes.', 8000);
             setDocuments([]);
             setTotalDocuments(0);
         } finally {
@@ -138,7 +114,7 @@ const Reports = ({ onViewDocument, notifications }) => {
             setLoading(true);
             info(`Iniciando exportación de "${title}"...`, 5000);
             await clinicalService.exportDocument(docId);
-            await loadDocuments(false);
+            loadDocuments(false);
             success(`Documento "${title}" enviado al HIS.`, 7000);
         } catch (e) {
             notifyError(`Fallo en exportación: ${e.message}`, 8000);
@@ -147,7 +123,7 @@ const Reports = ({ onViewDocument, notifications }) => {
         }
     };
 
-    const totalPages = Math.ceil(totalDocuments / PAGE_SIZE) || 1;
+    const totalPages = Math.ceil(totalDocuments / PAGE_SIZE);
 
     const handlePageChange = (page) => {
         if (page >= 1 && page <= totalPages) {
@@ -155,12 +131,10 @@ const Reports = ({ onViewDocument, notifications }) => {
         }
     };
 
-    const docTypeOptions = Object.entries(DOCUMENT_TYPES_MAP).map(
-        ([key, val]) => ({
-            value: key,
-            label: val.label,
-        })
-    );
+    const docTypeOptions = Object.entries(DOCUMENT_TYPES_MAP).map(([key, val]) => ({
+        value: key,
+        label: val.label
+    }));
 
     const getRelativeTime = (dateString) => {
         const date = new Date(dateString);
@@ -176,11 +150,10 @@ const Reports = ({ onViewDocument, notifications }) => {
         return `Hace ${diffDays} días`;
     };
 
-    const finalizedCount = documents.filter((d) => d.is_finalized).length;
-    const pendingHisCount = documents.filter(
-        (d) => d.is_finalized && !d.is_synced
-    ).length;
-    const syncedCount = documents.filter((d) => d.is_synced).length;
+    // contadores para tarjetas de estado (sobre la página actual)
+    const finalizedCount = documents.filter(d => d.is_finalized).length;
+    const syncedCount = documents.filter(d => d.is_synced).length;
+    const pendingHisCount = documents.filter(d => d.is_finalized && !d.is_synced).length;
 
     return (
         <motion.div
@@ -189,193 +162,137 @@ const Reports = ({ onViewDocument, notifications }) => {
             transition={{ duration: 0.6 }}
             className="space-y-6"
         >
-            {/* HEADER PRINCIPAL */}
-            <div className="bg-gradient-to-r from-slate-900 via-slate-950 to-blue-900 rounded-3xl px-6 py-6 md:px-8 md:py-7 shadow-2xl border border-slate-800/70">
+            {/* HEADER CLÍNICO CLARO */}
+            <div className="bg-gradient-to-r from-sky-50 via-blue-50 to-cyan-50 rounded-3xl p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)] border border-blue-100">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-2xl flex items-center justify-center shadow-lg shadow-cyan-500/40">
+                    <div className="flex items-center gap-4">
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/25">
                             <FileCheck className="w-7 h-7 text-white" />
                         </div>
                         <div>
-                            <p className="text-[0.7rem] font-semibold tracking-[0.28em] uppercase text-cyan-200/80">
+                            <p className="text-[0.7rem] font-semibold tracking-[0.25em] uppercase text-slate-500 mb-1">
                                 Monitor clínico
                             </p>
-                            <h1 className="mt-1 text-2xl md:text-3xl font-bold text-white tracking-tight">
+                            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 leading-tight">
                                 Gestión de Documentos Clínicos
                             </h1>
-                            <p className="mt-1 text-xs md:text-sm text-slate-200/90">
-                                Revise, filtre y sincronice informes, historias y certificados
-                                generados por la plataforma.
+                            <p className="text-sm text-slate-600 mt-1">
+                                Revise, filtre y sincronice informes, historias y certificados generados en la plataforma.
                             </p>
                         </div>
                     </div>
 
-                    <div className="flex flex-col items-end gap-2">
-                        <motion.button
-                            onClick={handleRefreshLoad}
-                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 text-slate-50 text-xs md:text-sm font-semibold border border-slate-500/40 backdrop-blur-sm hover:bg-white/15 hover:border-slate-300/60 transition-all shadow-lg shadow-slate-900/40"
-                            whileHover={{ scale: 1.05, rotate: 1 }}
-                            whileTap={{ scale: 0.96 }}
-                        >
-                            <RotateCcw className="w-4 h-4" />
-                            <span>Actualizar listado</span>
-                        </motion.button>
-                        <div className="flex items-center gap-2 text-[0.7rem] text-slate-300/90">
-                            <Activity className="w-3.5 h-3.5 text-emerald-300" />
-                            <span>
-                                {totalDocuments} documento
-                                {totalDocuments === 1 ? '' : 's'} encontrados
-                            </span>
-                        </div>
-                    </div>
+                    <motion.button
+                        onClick={handleRefreshLoad}
+                        className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white text-slate-800 rounded-xl text-sm font-semibold border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-200 hover:text-blue-700 transition-all duration-200"
+                        whileHover={{ scale: 1.03 }}
+                        whileTap={{ scale: 0.97 }}
+                    >
+                        <RotateCcw className="w-4 h-4" />
+                        <span>Actualizar listado</span>
+                    </motion.button>
                 </div>
             </div>
 
-            {/* PANEL DE MÉTRICAS */}
+            {/* PANEL DE ESTADÍSTICAS */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="rounded-2xl p-4 bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200/70 shadow-sm">
+                <div className="rounded-2xl p-4 bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-100">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-[0.75rem] font-semibold text-blue-900/80">
-                                Total documentos
-                            </p>
-                            <p className="text-2xl font-bold text-blue-700">
-                                {totalDocuments}
-                            </p>
+                            <p className="text-xs font-semibold text-blue-900">Total documentos</p>
+                            <p className="text-2xl font-bold text-blue-700">{totalDocuments}</p>
                         </div>
-                        <Database className="w-8 h-8 text-blue-500" />
+                        <Database className="w-7 h-7 text-blue-500" />
                     </div>
                 </div>
 
-                <div className="rounded-2xl p-4 bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-200/70 shadow-sm">
+                <div className="rounded-2xl p-4 bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-100">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-[0.75rem] font-semibold text-emerald-900/80">
-                                Finalizados
-                            </p>
-                            <p className="text-2xl font-bold text-emerald-700">
-                                {finalizedCount}
-                            </p>
+                            <p className="text-xs font-semibold text-emerald-900">Finalizados</p>
+                            <p className="text-2xl font-bold text-emerald-700">{finalizedCount}</p>
                         </div>
-                        <CheckCircle className="w-8 h-8 text-emerald-500" />
+                        <CheckCircle className="w-7 h-7 text-emerald-500" />
                     </div>
                 </div>
 
-                <div className="rounded-2xl p-4 bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200/70 shadow-sm">
+                <div className="rounded-2xl p-4 bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-100">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-[0.75rem] font-semibold text-amber-900/80">
-                                Pendientes HIS
-                            </p>
-                            <p className="text-2xl font-bold text-amber-700">
-                                {pendingHisCount}
-                            </p>
+                            <p className="text-xs font-semibold text-amber-900">Pendientes HIS</p>
+                            <p className="text-2xl font-bold text-amber-700">{pendingHisCount}</p>
                         </div>
-                        <Upload className="w-8 h-8 text-amber-500" />
+                        <Upload className="w-7 h-7 text-amber-500" />
                     </div>
                 </div>
 
-                <div className="rounded-2xl p-4 bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200/70 shadow-sm">
+                <div className="rounded-2xl p-4 bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-100">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-[0.75rem] font-semibold text-purple-900/80">
-                                Sincronizados
-                            </p>
-                            <p className="text-2xl font-bold text-purple-700">
-                                {syncedCount}
-                            </p>
+                            <p className="text-xs font-semibold text-purple-900">Sincronizados</p>
+                            <p className="text-2xl font-bold text-purple-700">{syncedCount}</p>
                         </div>
-                        <Shield className="w-8 h-8 text-purple-500" />
+                        <Shield className="w-7 h-7 text-purple-500" />
                     </div>
                 </div>
             </div>
 
-            {/* FILTROS */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-5 md:p-6 shadow-lg border border-slate-200/60">
-                <div className="flex items-center justify-between mb-3">
-                    <p className="text-[0.7rem] font-semibold tracking-[0.22em] uppercase text-slate-400">
-                        Filtros activos
-                    </p>
-                    <p className="text-[0.7rem] text-slate-400">
-                        Los resultados se actualizan automáticamente
-                    </p>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    {/* Búsqueda */}
+            {/* FILTROS – SIN BOTÓN APLICAR */}
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-5 shadow-lg border border-slate-200/60">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-center">
                     <div className="relative">
-                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <Search className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
                         <input
                             type="text"
-                            placeholder="Buscar por paciente, médico, asunto o contenido…"
+                            placeholder="Buscar por paciente, médico, asunto o contenido..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200"
+                            className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                         />
                     </div>
 
-                    {/* Tipo de documento */}
-                    <div className="flex items-center gap-2">
-                        <span className="text-[0.75rem] font-semibold text-slate-500 uppercase tracking-wide">
-                            Tipo
-                        </span>
-                        <select
-                            value={filterType}
-                            onChange={(e) => setFilterType(e.target.value)}
-                            className="flex-1 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                        >
-                            <option value="">Todos los tipos</option>
-                            {docTypeOptions.map((opt) => (
-                                <option key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+                    <select
+                        value={filterType}
+                        onChange={(e) => setFilterType(e.target.value)}
+                        className="px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                    >
+                        <option value="">Todos los tipos de documento</option>
+                        {docTypeOptions.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                            </option>
+                        ))}
+                    </select>
 
-                    {/* Resumen pequeño de resultados */}
-                    <div className="flex flex-col justify-center text-[0.8rem] text-slate-500">
-                        <div className="flex items-center gap-2">
-                            <Activity className="w-3.5 h-3.5 text-emerald-500" />
-                            <span>
-                                {documents.length} documentos en la página actual
-                            </span>
-                        </div>
-                    </div>
+                    <p className="text-xs text-right text-slate-500 hidden lg:block">
+                        Los resultados se actualizan automáticamente al escribir o cambiar filtros.
+                    </p>
                 </div>
             </div>
 
-            {/* CONTENIDO PRINCIPAL */}
+            {/* CONTENIDO */}
             {loading ? (
                 <div className="text-center p-12 bg-white/80 rounded-2xl shadow-xl">
                     <motion.div
-                        className="w-11 h-11 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"
-                        transition={{
-                            ease: 'linear',
-                            duration: 1,
-                            repeat: Infinity,
-                        }}
+                        className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"
+                        transition={{ ease: 'linear', duration: 1, repeat: Infinity }}
                     />
-                    <p className="text-slate-600 text-sm font-medium">
-                        Cargando documentos clínicos…
-                    </p>
+                    <p className="text-slate-600 font-medium">Cargando documentos clínicos...</p>
                 </div>
             ) : error ? (
                 <div className="text-center p-10 bg-red-50/80 border border-red-200 rounded-2xl shadow-xl">
                     <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-3" />
-                    <h3 className="text-base font-semibold text-red-700 mb-1">
-                        Error al cargar documentos
-                    </h3>
-                    <p className="text-sm text-red-600">{error}</p>
+                    <h3 className="text-lg font-semibold text-red-700 mb-1">Error al cargar documentos</h3>
+                    <p className="text-red-600 text-sm">{error}</p>
                 </div>
             ) : documents.length === 0 ? (
                 <div className="text-center p-12 bg-white/80 rounded-2xl shadow-xl">
-                    <FileText className="w-14 h-14 text-slate-300 mx-auto mb-3" />
+                    <FileText className="w-14 h-14 text-slate-300 mx-auto mb-4" />
                     <h3 className="text-lg font-semibold text-slate-700 mb-1">
                         No se encontraron documentos
                     </h3>
-                    <p className="text-sm text-slate-500">
-                        Ajusta los filtros o realiza una nueva búsqueda.
+                    <p className="text-slate-500 text-sm">
+                        Ajusta los filtros o prueba con otro término de búsqueda.
                     </p>
                 </div>
             ) : (
@@ -383,7 +300,7 @@ const Reports = ({ onViewDocument, notifications }) => {
                     className="space-y-4"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ staggerChildren: 0.06 }}
+                    transition={{ staggerChildren: 0.08 }}
                 >
                     {documents.map((doc) => {
                         const typeConfig =
@@ -392,37 +309,47 @@ const Reports = ({ onViewDocument, notifications }) => {
                         const DocIcon = typeConfig.icon;
 
                         const statusConfig = doc.is_synced
-                            ? {
-                                color: 'emerald',
-                                text: 'Sincronizado HIS',
-                                icon: CheckCircle,
-                            }
+                            ? { color: 'emerald', text: 'Sincronizado HIS', icon: CheckCircle }
                             : doc.is_finalized
-                                ? {
-                                    color: 'blue',
-                                    text: 'Finalizado',
-                                    icon: FileCheck,
-                                }
-                                : {
-                                    color: 'amber',
-                                    text: 'Borrador',
-                                    icon: Edit3,
-                                };
+                                ? { color: 'blue', text: 'Finalizado', icon: FileCheck }
+                                : { color: 'amber', text: 'Borrador', icon: Edit3 };
 
                         const StatusIcon = statusConfig.icon;
-                        const createdAt = new Date(doc.created_at);
+
+                        const patientId = doc.clinical_meta?.patient_id || 'ID no disponible';
+                        const patientName =
+                            doc.clinical_meta?.patient_name ||
+                            doc.clinical_meta?.patient_full_name ||
+                            '';
+
+                        const patientLabel = patientName
+                            ? `${patientName} / ${patientId}`
+                            : patientId;
+
+                        // Título principal = asunto del estudio
+                        const subject =
+                            doc.clinical_meta?.clinical_subject ||
+                            doc.title ||
+                            typeConfig.label;
+
+                        // Resumen: sólo se muestra si es distinto al asunto
+                        const summary =
+                            doc.clinical_meta?.clinical_summary || doc.summary || '';
+                        const showSummary =
+                            summary &&
+                            summary.trim().length > 0 &&
+                            summary.trim() !== subject.trim();
 
                         return (
                             <motion.div
                                 key={doc.id}
                                 initial={{ opacity: 0, y: 18 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                whileHover={{ scale: 1.01, y: -2 }}
-                                className="group relative"
+                                className="group"
                             >
-                                <div className="bg-white rounded-2xl p-5 md:p-6 shadow-lg border border-slate-200/70 hover:shadow-xl hover:border-blue-200/70 transition-all duration-300">
-                                    <div className="flex items-start justify-between gap-4">
-                                        {/* Columna izquierda */}
+                                <div className="bg-white rounded-2xl p-5 shadow-lg border border-slate-200/60 hover:border-blue-200/70 hover:shadow-xl transition-all duration-300">
+                                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                                        {/* IZQUIERDA: icono + info principal */}
                                         <div className="flex items-start gap-4 flex-1 min-w-0">
                                             {/* Icono tipo documento */}
                                             <div className="relative flex-shrink-0">
@@ -431,95 +358,83 @@ const Reports = ({ onViewDocument, notifications }) => {
                                                 >
                                                     <DocIcon className="w-6 h-6 text-white" />
                                                 </div>
-                                                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-white rounded-full border-2 border-white flex items-center justify-center shadow-sm">
+                                                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-white rounded-full border border-white flex items-center justify-center shadow-sm">
                                                     <StatusIcon
                                                         className={`w-3 h-3 text-${statusConfig.color}-500`}
                                                     />
                                                 </div>
                                             </div>
 
-                                            {/* Contenido principal */}
-                                            <div className="flex-1 min-w-0 space-y-2.5">
-                                                {/* Fila 1: paciente + estado + tiempo relativo */}
-                                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                                                    <div className="flex flex-wrap items-center gap-2">
-                                                        <div className="inline-flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-full">
-                                                            <User className="w-4 h-4 text-blue-600" />
-                                                            <span className="text-xs font-semibold text-blue-800">
-                                                                {doc.clinical_meta
-                                                                        ?.patient_id ||
-                                                                    'Paciente sin identificación'}
-                                                            </span>
-                                                        </div>
-                                                        <span
-                                                            className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[0.7rem] font-semibold bg-${statusConfig.color}-50 text-${statusConfig.color}-700 border border-${statusConfig.color}-200`}
-                                                        >
-                                                            {statusConfig.text}
+                                            {/* Texto principal */}
+                                            <div className="flex-1 min-w-0 space-y-2">
+                                                {/* Paciente + Estado */}
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <div className="inline-flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-full">
+                                                        <User className="w-4 h-4 text-blue-600" />
+                                                        <span className="text-xs font-semibold text-blue-800 truncate max-w-[260px] md:max-w-xs">
+                                                            {patientLabel}
                                                         </span>
                                                     </div>
-                                                    <span className="text-[0.75rem] text-slate-500">
-                                                        {getRelativeTime(doc.created_at)}
+                                                    <span
+                                                        className={`px-3 py-1 rounded-full text-[0.7rem] font-semibold bg-${statusConfig.color}-50 text-${statusConfig.color}-700 border border-${statusConfig.color}-200`}
+                                                    >
+                                                        {statusConfig.text}
                                                     </span>
                                                 </div>
 
-                                                {/* Fila 2: título / asunto */}
-                                                <div>
-                                                    <p className="text-[0.7rem] font-semibold tracking-[0.22em] text-slate-400 uppercase">
-                                                        {typeConfig.label}
-                                                    </p>
-                                                    <h3 className="text-sm md:text-base font-semibold text-slate-900 leading-snug line-clamp-1">
-                                                        {doc.clinical_meta
-                                                                ?.clinical_subject ||
-                                                            doc.title ||
-                                                            'Documento clínico sin asunto específico'}
-                                                    </h3>
-                                                </div>
+                                                {/* Asunto (título grande) */}
+                                                <h3 className="text-base md:text-lg font-bold text-slate-900 leading-snug truncate">
+                                                    {subject}
+                                                </h3>
 
-                                                {/* Fila 3: metadatos */}
-                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs md:text-sm">
-                                                    <div className="flex items-center gap-2">
-                                                        <Briefcase className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                                                {/* Tipo de documento */}
+                                                <p className="text-[0.7rem] font-semibold tracking-[0.25em] uppercase text-slate-400">
+                                                    {typeConfig.label}
+                                                </p>
+
+                                                {/* Metadatos: médico, resumen, fecha */}
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs md:text-[0.78rem] mt-1">
+                                                    <div className="flex items-start gap-2">
+                                                        <Briefcase className="w-4 h-4 text-purple-500 flex-shrink-0 mt-[2px]" />
                                                         <div>
-                                                            <p className="text-[0.68rem] text-slate-500 font-semibold uppercase">
-                                                                Médico responsable
+                                                            <p className="text-[0.65rem] font-semibold text-slate-500">
+                                                                MÉDICO RESPONSABLE
                                                             </p>
                                                             <p className="text-slate-900 font-medium">
-                                                                {doc.clinical_meta
-                                                                        ?.doctor_name ||
+                                                                {doc.clinical_meta?.doctor_name ||
                                                                     'No especificado'}
                                                             </p>
                                                         </div>
                                                     </div>
 
-                                                    <div className="flex items-center gap-2">
-                                                        <AlignLeft className="w-4 h-4 text-orange-500 flex-shrink-0" />
-                                                        <div>
-                                                            <p className="text-[0.68rem] text-slate-500 font-semibold uppercase">
-                                                                Resumen
-                                                            </p>
-                                                            <p className="text-slate-900 font-medium line-clamp-1">
-                                                                {doc.clinical_meta
-                                                                        ?.clinical_subject ||
-                                                                    'Sin descripción'}
-                                                            </p>
+                                                    {showSummary && (
+                                                        <div className="flex items-start gap-2">
+                                                            <AlignLeft className="w-4 h-4 text-orange-500 flex-shrink-0 mt-[2px]" />
+                                                            <div>
+                                                                <p className="text-[0.65rem] font-semibold text-slate-500">
+                                                                    RESUMEN
+                                                                </p>
+                                                                <p className="text-slate-900 font-medium line-clamp-2">
+                                                                    {summary}
+                                                                </p>
+                                                            </div>
                                                         </div>
-                                                    </div>
+                                                    )}
 
-                                                    <div className="flex items-center gap-2">
-                                                        <Calendar className="w-4 h-4 text-teal-500 flex-shrink-0" />
+                                                    <div className="flex items-start gap-2">
+                                                        <Calendar className="w-4 h-4 text-teal-500 flex-shrink-0 mt-[2px]" />
                                                         <div>
-                                                            <p className="text-[0.68rem] text-slate-500 font-semibold uppercase">
-                                                                Fecha de creación
+                                                            <p className="text-[0.65rem] font-semibold text-slate-500">
+                                                                FECHA DE CREACIÓN
                                                             </p>
                                                             <p className="text-slate-900 font-medium">
-                                                                {createdAt.toLocaleDateString(
-                                                                    'es-ES',
-                                                                    {
-                                                                        day: '2-digit',
-                                                                        month: '2-digit',
-                                                                        year: 'numeric',
-                                                                    }
-                                                                )}
+                                                                {new Date(
+                                                                    doc.created_at
+                                                                ).toLocaleDateString('es-ES', {
+                                                                    day: '2-digit',
+                                                                    month: '2-digit',
+                                                                    year: 'numeric'
+                                                                })}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -527,56 +442,54 @@ const Reports = ({ onViewDocument, notifications }) => {
                                             </div>
                                         </div>
 
-                                        {/* Columna derecha: acciones */}
-                                        <div className="flex flex-col items-end gap-3 flex-shrink-0">
-                                            <motion.button
-                                                onClick={() => onViewDocument(doc.id)}
-                                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-slate-50 text-xs font-semibold shadow-md hover:bg-slate-800 hover:shadow-lg transition-all"
-                                                whileHover={{ scale: 1.05 }}
-                                                whileTap={{ scale: 0.95 }}
-                                            >
-                                                <MessageSquare className="w-4 h-4" />
-                                                <span>Revisar</span>
-                                            </motion.button>
+                                        {/* DERECHA: tiempo + acciones */}
+                                        <div className="flex flex-row md:flex-col items-end justify-between md:justify-start gap-3 flex-shrink-0">
+                                            <span className="text-[0.75rem] text-slate-400">
+                                                {getRelativeTime(doc.created_at)}
+                                            </span>
 
-                                            {!doc.is_synced && doc.is_finalized && (
+                                            <div className="flex items-center gap-2">
                                                 <motion.button
-                                                    onClick={() =>
-                                                        handleExportToHis(
-                                                            doc.id,
-                                                            doc.title
-                                                        )
-                                                    }
-                                                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white text-slate-700 border border-slate-200 text-[0.75rem] font-medium hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
+                                                    onClick={() => onViewDocument(doc.id)}
+                                                    className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold shadow-md hover:bg-slate-800 transition-all duration-200"
                                                     whileHover={{ scale: 1.05 }}
                                                     whileTap={{ scale: 0.96 }}
                                                 >
-                                                    <Upload className="w-3.5 h-3.5" />
-                                                    <span>Exportar HIS</span>
+                                                    <MessageSquare className="w-4 h-4" />
+                                                    <span>Revisar</span>
                                                 </motion.button>
-                                            )}
+
+                                                {!doc.is_synced && doc.is_finalized && (
+                                                    <motion.button
+                                                        onClick={() =>
+                                                            handleExportToHis(doc.id, subject)
+                                                        }
+                                                        className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl text-xs font-medium hover:bg-slate-50 transition-all duration-200"
+                                                        whileHover={{ scale: 1.05 }}
+                                                        whileTap={{ scale: 0.96 }}
+                                                    >
+                                                        <Upload className="w-3.5 h-3.5" />
+                                                        <span>Exportar HIS</span>
+                                                    </motion.button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
 
-                                    {/* Footer sutil con ID y hora */}
-                                    <div className="mt-3 flex flex-wrap items-center gap-3 text-[0.7rem] text-slate-500">
-                                        <Activity className="w-3.5 h-3.5" />
-                                        <span
-                                            className="font-mono"
-                                            title={doc.id}
-                                        >
-                                            ID: {doc.id}
-                                        </span>
-                                        <span className="mx-1">•</span>
+                                    {/* PIE: ID + HORA */}
+                                    <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[0.7rem] text-slate-500">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <Activity className="w-3.5 h-3.5" />
+                                            <span className="font-mono truncate max-w-xs">
+                                                ID: {doc.id}
+                                            </span>
+                                        </div>
                                         <span>
                                             Generado a las{' '}
-                                            {createdAt.toLocaleTimeString(
-                                                'es-ES',
-                                                {
-                                                    hour: '2-digit',
-                                                    minute: '2-digit',
-                                                }
-                                            )}
+                                            {new Date(doc.created_at).toLocaleTimeString('es-ES', {
+                                                hour: '2-digit',
+                                                minute: '2-digit'
+                                            })}
                                         </span>
                                     </div>
                                 </div>
