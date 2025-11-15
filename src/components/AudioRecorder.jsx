@@ -1,11 +1,12 @@
 import React, {useState, useRef, useEffect} from 'react';
 import {motion, AnimatePresence} from 'framer-motion';
+import Markdown from 'markdown-to-jsx';
 import {
     Mic, Square, Play, Pause, Upload, Trash2, CheckCircle,
-    AlertCircle, FileText, Copy, Edit3, Download, Stethoscope,
-    Pill, User, Calendar, Clock, FileDown, Radiation, X,
+    AlertCircle, FileText, Copy, Edit3, Stethoscope,
+    Pill, User, Clock, FileDown, Radiation, X,
     Shield, Brain, Database, Cloud, Sparkles, FileCheck,
-    RotateCcw, FileSignature, ClipboardList, Save, Scan, Building
+    RotateCcw, FileSignature, ClipboardList, Save, Building, Briefcase, Activity
 } from 'lucide-react';
 import {storageService} from '../services/storage';
 import {recordingService} from '../services/recordings';
@@ -29,7 +30,7 @@ const DOCUMENT_TYPES_CONFIG = {
         value: 'radiology_report',
         label: 'Informe Radiológico',
         description: 'Reporte de estudios de imagen',
-        icon: Radiation, // REGLA: Usar Radiation para radiológico
+        icon: Radiation,
         color: 'amber',
         gradient: 'from-amber-500 to-orange-500',
         lightGradient: 'from-amber-50 to-amber-50',
@@ -65,7 +66,7 @@ const DOCUMENT_TYPES_CONFIG = {
         value: 'incapacity',
         label: 'Incapacidad',
         description: 'Documento de incapacidad laboral',
-        icon: User,
+        icon: Briefcase,
         color: 'indigo',
         gradient: 'from-indigo-500 to-blue-500',
         lightGradient: 'from-indigo-50 to-blue-50',
@@ -75,12 +76,11 @@ const DOCUMENT_TYPES_CONFIG = {
     }
 };
 
-
 // -------------------------------------------------------------------
-// Componente Modal de Contexto Clínico (NUEVO)
+// Modal de contexto clínico
 // -------------------------------------------------------------------
 
-const ClinicalContextModal = ({docType, docConfig, onConfirm, onCancel}) => {
+const ClinicalContextModal = ({docConfig, onConfirm, onCancel}) => {
     const [patientId, setPatientId] = useState('');
     const [subject, setSubject] = useState('');
     const [error, setError] = useState('');
@@ -115,7 +115,9 @@ const ClinicalContextModal = ({docType, docConfig, onConfirm, onCancel}) => {
                         <h3 className="text-xl font-bold text-gray-900">
                             Contexto Clínico - {docConfig.label}
                         </h3>
-                        <p className="text-sm text-gray-600">Asocie este dictado a un paciente y tema.</p>
+                        <p className="text-sm text-gray-600">
+                            Asocie este dictado a un paciente y al foco clínico principal.
+                        </p>
                     </div>
                 </div>
 
@@ -140,7 +142,6 @@ const ClinicalContextModal = ({docType, docConfig, onConfirm, onCancel}) => {
                             }}
                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900"
                             placeholder="Ej: HC-123456 / Juan Pérez"
-                            required
                         />
                     </div>
                     <div>
@@ -156,7 +157,6 @@ const ClinicalContextModal = ({docType, docConfig, onConfirm, onCancel}) => {
                             }}
                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900"
                             placeholder="Ej: Hallazgos de TAC abdominal / Evolución post-operatoria"
-                            required
                         />
                     </div>
                 </div>
@@ -182,22 +182,22 @@ const ClinicalContextModal = ({docType, docConfig, onConfirm, onCancel}) => {
     );
 };
 
-
 // -------------------------------------------------------------------
-// Componente AudioRecorder Principal
+// Componente principal
 // -------------------------------------------------------------------
 
-const AudioRecorder = () => {
+const STEP_ORDER = ['uploading', 'registering', 'transcribing', 'generating'];
+
+const AudioRecorder = ({ notifications }) => {
     const [recordingState, setRecordingState] = useState('idle');
     const [recordedAudio, setRecordedAudio] = useState(null);
     const [audioBlob, setAudioBlob] = useState(null);
     const [recordingTime, setRecordingTime] = useState(0);
-    const [transcript, setTranscript] = useState('');
     const [uploadStatus, setUploadStatus] = useState('');
     const [statusMessage, setStatusMessage] = useState('');
     const [documentType, setDocumentType] = useState('clinical_history');
-    const [documentMetadata, setDocumentMetadata] = useState({}); // {patientId, subject, ...}
-    const [generatedDocument, setGeneratedDocument] = useState(null); // {document_id, content, ...}
+    const [documentMetadata, setDocumentMetadata] = useState({});
+    const [generatedDocument, setGeneratedDocument] = useState(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [processingSteps, setProcessingSteps] = useState([]);
     const [currentStep, setCurrentStep] = useState(null);
@@ -208,10 +208,11 @@ const AudioRecorder = () => {
 
     const [recordingId, setRecordingId] = useState(null);
     const [documentId, setDocumentId] = useState(null);
-
-    // NUEVO ESTADO: Controla la aparición del modal de metadatos
     const [showContextModal, setShowContextModal] = useState(false);
 
+    // Timer total de procesamiento (se mantiene hasta limpiar dictado)
+    const [processingDuration, setProcessingDuration] = useState(0);
+    const llmTimerRef = useRef(null);
 
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
@@ -224,32 +225,32 @@ const AudioRecorder = () => {
     const processingStepsConfig = {
         uploading: {
             icon: Cloud,
-            title: 'Subiendo Audio',
-            description: 'Guardando en almacenamiento seguro',
+            title: 'Subiendo Audio (S3)',
+            description: 'Guardando el dictado en almacenamiento seguro',
             gradient: 'from-blue-500 to-cyan-500',
             lightGradient: 'from-blue-50 to-cyan-50',
             pulseColor: 'bg-gradient-to-r from-blue-500 to-cyan-500'
         },
         registering: {
             icon: Database,
-            title: 'Registrando en Sistema',
-            description: 'Creando registro médico',
+            title: 'Registrando Metadatos (DB)',
+            description: 'Creando el registro clínico asociado',
             gradient: 'from-indigo-500 to-purple-500',
             lightGradient: 'from-indigo-50 to-purple-50',
             pulseColor: 'bg-gradient-to-r from-indigo-500 to-purple-500'
         },
         transcribing: {
             icon: Brain,
-            title: 'Procesando con IA',
-            description: 'Transcribiendo dictado médico',
+            title: 'Transcribiendo (AWS Transcribe)',
+            description: 'Convirtiendo audio a texto médico',
             gradient: 'from-emerald-500 to-green-500',
             lightGradient: 'from-emerald-50 to-green-50',
             pulseColor: 'bg-gradient-to-r from-emerald-500 to-green-500'
         },
         generating: {
             icon: Sparkles,
-            title: 'Generando Documento',
-            description: 'Creando documento médico estructurado',
+            title: 'Estructurando Informe (IA Médica)',
+            description: 'Redactando informe listo para la historia clínica',
             gradient: 'from-amber-500 to-orange-500',
             lightGradient: 'from-amber-50 to-orange-50',
             pulseColor: 'bg-gradient-to-r from-amber-500 to-orange-500'
@@ -257,7 +258,7 @@ const AudioRecorder = () => {
         completed: {
             icon: FileCheck,
             title: 'Proceso Completado',
-            description: 'Documento listo para uso',
+            description: 'Documento disponible para revisión y exportación',
             gradient: 'from-green-500 to-emerald-500',
             lightGradient: 'from-green-50 to-emerald-50',
             pulseColor: 'bg-gradient-to-r from-green-500 to-emerald-500'
@@ -273,7 +274,6 @@ const AudioRecorder = () => {
                 bg: `bg-gradient-to-br ${config.lightGradient}`,
                 border: `border-transparent bg-gradient-to-br ${config.borderGradient} bg-origin-border`,
                 text: `bg-gradient-to-r ${config.textGradient} bg-clip-text text-transparent`,
-                icon: `bg-gradient-to-r ${config.textGradient} bg-clip-text text-transparent`,
                 shadow: `shadow-lg ${config.shadow}`
             };
         }
@@ -282,7 +282,6 @@ const AudioRecorder = () => {
             bg: 'bg-gradient-to-br from-gray-50 to-gray-100',
             border: 'border-gray-200',
             text: 'text-gray-600',
-            icon: 'text-gray-400',
             shadow: 'shadow-sm'
         };
     };
@@ -328,17 +327,17 @@ const AudioRecorder = () => {
 
             mediaRecorder.onerror = (event) => {
                 console.error('MediaRecorder error:', event.error);
-                showStatus('error', 'Error en la grabación de audio');
+                notifications.error('Error en la grabación de audio');
             };
 
         } catch (error) {
             console.error('Error accessing microphone:', error);
             if (error.name === 'NotAllowedError') {
-                showStatus('error', 'Permiso de micrófono denegado. Por favor permita el acceso al micrófono.');
+                notifications.error('Permiso de micrófono denegado. Por favor permita el acceso al micrófono.');
             } else if (error.name === 'NotFoundError') {
-                showStatus('error', 'No se encontró ningún dispositivo de micrófono.');
+                notifications.error('No se encontró ningún dispositivo de micrófono.');
             } else {
-                showStatus('error', `Error al acceder al micrófono: ${error.message}`);
+                notifications.error(`Error al acceder al micrófono: ${error.message}`);
             }
         }
     };
@@ -377,9 +376,7 @@ const AudioRecorder = () => {
 
     const cleanupResources = () => {
         if (streamRef.current) {
-            streamRef.current.getTracks().forEach(track => {
-                track.stop();
-            });
+            streamRef.current.getTracks().forEach(track => track.stop());
             streamRef.current = null;
         }
 
@@ -391,9 +388,13 @@ const AudioRecorder = () => {
             clearInterval(timerRef.current);
             timerRef.current = null;
         }
+
+        if (llmTimerRef.current) {
+            clearInterval(llmTimerRef.current);
+            llmTimerRef.current = null;
+        }
     };
 
-    // NUEVA FUNCIÓN: Inicia la grabación DESPUÉS de obtener el contexto
     const initiateRecordingAfterContext = async (context) => {
         setShowContextModal(false);
         setDocumentMetadata(context);
@@ -417,42 +418,37 @@ const AudioRecorder = () => {
                 setRecordingTime(prev => prev + 1);
             }, 1000);
 
-            showStatus('info', 'Grabando dictado médico...');
+            notifications.info('Grabando dictado médico...');
         }
     };
 
-    // FUNCIÓN MODIFICADA: Ahora abre el modal o llama a la función de inicio si no es 'idle'
-    const startRecording = async () => {
+    const startRecording = () => {
         if (recordingState === 'idle') {
-            // Si está en idle, mostrar modal de contexto
             setShowContextModal(true);
         } else if (recordingState === 'completed') {
-            // Si está en completed, iniciar flujo de nuevo dictado
             handleNewDictation();
         }
-        // Si está en recorded, se espera que el usuario presione el botón de Procesar
     };
 
-
     const togglePause = () => {
-        if (mediaRecorderRef.current) {
-            if (recordingState === 'paused') {
-                mediaRecorderRef.current.resume();
-                setRecordingState('recording');
-                showStatus('info', 'Grabación reanudada');
+        if (!mediaRecorderRef.current) return;
 
-                timerRef.current = setInterval(() => {
-                    setRecordingTime(prev => prev + 1);
-                }, 1000);
-            } else {
-                mediaRecorderRef.current.pause();
-                setRecordingState('paused');
-                showStatus('warning', 'Grabación pausada');
+        if (recordingState === 'paused') {
+            mediaRecorderRef.current.resume();
+            setRecordingState('recording');
+            notifications.info('Grabación reanudada');
 
-                if (timerRef.current) {
-                    clearInterval(timerRef.current);
-                    timerRef.current = null;
-                }
+            timerRef.current = setInterval(() => {
+                setRecordingTime(prev => prev + 1);
+            }, 1000);
+        } else if (recordingState === 'recording') {
+            mediaRecorderRef.current.pause();
+            setRecordingState('paused');
+            notifications.warning('Grabación pausada');
+
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
             }
         }
     };
@@ -461,7 +457,7 @@ const AudioRecorder = () => {
         if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
             mediaRecorderRef.current.stop();
             setRecordingState('recorded');
-            showStatus('success', 'Dictado grabado correctamente');
+            notifications.success('Dictado grabado correctamente');
 
             if (timerRef.current) {
                 clearInterval(timerRef.current);
@@ -480,7 +476,6 @@ const AudioRecorder = () => {
         setRecordedAudio(null);
         setAudioBlob(null);
         setRecordingTime(0);
-        setTranscript('');
         setUploadStatus('');
         setStatusMessage('');
         setRecordingState('idle');
@@ -491,10 +486,10 @@ const AudioRecorder = () => {
         setShowNewDictationOptions(false);
         setIsEditingDocument(false);
         setEditedDocumentContent('');
-
         setRecordingId(null);
         setDocumentId(null);
-        setDocumentMetadata({}); // Limpiar metadatos
+        setDocumentMetadata({});
+        setProcessingDuration(0);   // el reloj se resetea sólo cuando se limpia el dictado
 
         cleanupResources();
 
@@ -507,13 +502,9 @@ const AudioRecorder = () => {
         setShowDeleteConfirm(false);
     };
 
-    const handleDeleteClick = () => {
-        setShowDeleteConfirm(true);
-    };
+    const handleDeleteClick = () => setShowDeleteConfirm(true);
 
-    const handleNewDictation = () => {
-        setShowNewDictationOptions(true);
-    };
+    const handleNewDictation = () => setShowNewDictationOptions(true);
 
     const handleNewDictationChoice = (choice) => {
         if (choice === 'sameType') {
@@ -526,15 +517,14 @@ const AudioRecorder = () => {
     };
 
     const handleEditDocument = () => {
-        if (generatedDocument) {
-            setEditedDocumentContent(generatedDocument.content);
-            setIsEditingDocument(true);
-        }
+        if (!generatedDocument) return;
+        setEditedDocumentContent(generatedDocument.content);
+        setIsEditingDocument(true);
     };
 
     const handleSaveEditedDocument = async () => {
         if (!documentId) {
-            showStatus('error', 'Error: ID de documento no encontrado.');
+            notifications.error('Error: ID de documento no encontrado.');
             return;
         }
 
@@ -542,7 +532,7 @@ const AudioRecorder = () => {
             const updateResult = await clinicalService.updateDocumentContent(
                 documentId,
                 editedDocumentContent,
-                false // Marca como no finalizado si se edita
+                false
             );
 
             setGeneratedDocument(prev => ({
@@ -551,15 +541,29 @@ const AudioRecorder = () => {
             }));
 
             setIsEditingDocument(false);
-            showStatus('success', 'Documento editado y guardado correctamente');
+            notifications.success('Documento editado y guardado correctamente');
         } catch (error) {
-            showStatus('error', error.message || 'Error al guardar los cambios');
+            notifications.error(error.message || 'Error al guardar los cambios');
         }
     };
 
     const handleCancelEdit = () => {
         setIsEditingDocument(false);
         setEditedDocumentContent('');
+    };
+
+    const startTotalTimer = () => {
+        setProcessingDuration(0);
+        llmTimerRef.current = setInterval(() => {
+            setProcessingDuration(prev => prev + 1);
+        }, 1000);
+    };
+
+    const stopTotalTimer = () => {
+        if (llmTimerRef.current) {
+            clearInterval(llmTimerRef.current);
+            llmTimerRef.current = null;
+        }
     };
 
     const uploadAndTranscribe = async () => {
@@ -570,12 +574,15 @@ const AudioRecorder = () => {
         setProcessingSteps([]);
         setCurrentStep(null);
         setShowFinalSuccess(false);
+        setProcessingDuration(0);
 
         let currentRecording = null;
         let transcriptionResult = null;
 
+        startTotalTimer();
+
         try {
-            // 1. UPLOADING
+            // 1. Subir audio
             updateProcessingStep('uploading', 'active');
             const presignResponse = await storageService.presignPut({
                 filename: `medical-dictation-${Date.now()}.webm`,
@@ -595,7 +602,7 @@ const AudioRecorder = () => {
             }
             updateProcessingStep('uploading', 'completed');
 
-            // 2. REGISTERING
+            // 2. Registrar metadatos
             updateProcessingStep('registering', 'active');
             const recordingData = {
                 bucket: presignResponse.bucket,
@@ -606,10 +613,10 @@ const AudioRecorder = () => {
             };
 
             currentRecording = await recordingService.createRecording(recordingData);
-            setRecordingId(currentRecording.id); // Guardar ID
+            setRecordingId(currentRecording.id);
             updateProcessingStep('registering', 'completed');
 
-            // 3. TRANSCRIBING
+            // 3. Transcripción
             updateProcessingStep('transcribing', 'active');
             await transcriptionService.startTranscription(currentRecording.id);
 
@@ -619,25 +626,26 @@ const AudioRecorder = () => {
                 throw new Error('No se pudo obtener la transcripción');
             }
 
-            setTranscript(transcriptionResult.transcript_text);
             updateProcessingStep('transcribing', 'completed');
 
-            // 4. GENERATING DOCUMENT
+            // 4. Generación de documento
             updateProcessingStep('generating', 'active');
-            // Pasar los metadatos de contexto capturados
-            await generateMedicalDocument(currentRecording.id, transcriptionResult.transcript_text);
-            updateProcessingStep('generating', 'completed');
 
-            // 5. COMPLETED
+            await generateMedicalDocument(currentRecording.id, transcriptionResult.transcript_text);
+
+            stopTotalTimer();
+            updateProcessingStep('generating', 'completed');
             updateProcessingStep('completed', 'completed');
 
             setRecordingState('completed');
             setShowFinalSuccess(true);
+            notifications.success(`Informe generado en ${formatTime(processingDuration)} minutos.`);
 
         } catch (error) {
             console.error('Upload/transcription error:', error);
+            stopTotalTimer();
             setRecordingState('recorded');
-            showStatus('error', `Error en procesamiento médico: ${error.message}`);
+            notifications.error(`Error en procesamiento médico: ${error.message}`);
 
             setProcessingSteps(prev => prev.map(step => ({
                 ...step,
@@ -648,13 +656,12 @@ const AudioRecorder = () => {
 
     const generateMedicalDocument = async (currentRecordingId, transcriptText) => {
         try {
-            // Metadatos base + metadatos capturados del modal
             const metadata = {
                 institution_name: localStorage.getItem('tenantCode'),
                 doctor_name: JSON.parse(localStorage.getItem('userInfo'))?.full_name || 'Dr. Médico',
                 recording_duration: recordingTime,
-                patient_id: documentMetadata.patientId || 'N/A', // Usar metadatos del estado
-                clinical_subject: documentMetadata.subject || 'N/A', // Usar metadatos del estado
+                patient_id: documentMetadata.patientId || 'N/A',
+                clinical_subject: documentMetadata.subject || 'N/A',
             };
 
             const result = await clinicalService.generateMedicalDocument(
@@ -666,7 +673,7 @@ const AudioRecorder = () => {
 
             if (result.success) {
                 setGeneratedDocument(result);
-                setDocumentId(result.document_id); // Guardar ID del documento
+                setDocumentId(result.document_id);
             } else {
                 throw new Error(result.error || 'Error generando documento');
             }
@@ -676,31 +683,17 @@ const AudioRecorder = () => {
         }
     };
 
-    const handleCopyTranscript = () => {
-        navigator.clipboard.writeText(transcript);
-        showStatus('success', 'Texto copiado al portapapeles');
-    };
-
     const handleCopyDocument = () => {
-        if (generatedDocument) {
-            navigator.clipboard.writeText(generatedDocument.content);
-            showStatus('success', 'Documento copiado al portapapeles');
-        }
+        if (!generatedDocument) return;
+        navigator.clipboard.writeText(generatedDocument.content);
+        notifications.success('Documento copiado al portapapeles');
     };
 
     const handleDownloadDocument = () => {
-        if (generatedDocument) {
-            const blob = new Blob([generatedDocument.content], {type: 'text/plain'});
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `documento-medico-${Date.now()}.txt`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            showStatus('success', 'Documento descargado');
-        }
+        notifications.warning(
+            'La descarga de PDF oficial debe realizarse desde la página de Reportes Clínicos.',
+            6000
+        );
     };
 
     const formatTime = (seconds) => {
@@ -761,15 +754,47 @@ const AudioRecorder = () => {
         return () => cleanupResources();
     }, []);
 
-    return (
-        <div
-            className="bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-200/50 p-6 shadow-xl shadow-blue-500/5">
+    const MarkdownOptions = {
+        overrides: {
+            h1: { props: { className: 'text-2xl font-extrabold text-gray-900 mt-6 mb-3 border-b pb-2' } },
+            h2: { props: { className: 'text-xl font-bold text-gray-800 mt-5 mb-2' } },
+            h3: { props: { className: 'text-lg font-semibold text-gray-700 mt-4 mb-1' } },
+            h4: { props: { className: 'text-base font-semibold text-blue-600 mt-3 mb-1' } },
+            p: { props: { className: 'text-gray-700 leading-relaxed mb-3' } },
+            li: { props: { className: 'text-gray-700 ml-5 list-disc' } },
+            pre: { props: { className: 'bg-gray-100 p-3 rounded-lg text-sm overflow-x-auto my-3' } },
+            table: { props: { className: 'w-full text-sm text-left text-gray-500 border border-gray-200 mt-3 mb-3' } },
+            th: { props: { className: 'px-6 py-3 bg-gray-50' } },
+            td: { props: { className: 'px-6 py-4' } },
+        },
+    };
 
-            {/* MODAL DE CONTEXTO CLÍNICO */}
+    const getCleanContent = (content) => {
+        if (!content) return '';
+        let clean = content;
+        clean = clean.replace(
+            /--- INFORME MÉDICO OFICIAL ---[\s\S]*?-----------------------------------------------------------------------------------------\n/,
+            ''
+        ).trim();
+        clean = clean.replace(/\n--- FIN DEL INFORME ---[\s\S]*$/, '').trim();
+        return clean;
+    };
+
+    // ---------------------------------------------------
+    // RENDER
+    // ---------------------------------------------------
+
+    const currentStepIndex =
+        currentStep ? Math.max(STEP_ORDER.indexOf(currentStep), 0) : 0;
+    const totalSteps = STEP_ORDER.length;
+
+    return (
+        <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-200/50 p-6 shadow-xl shadow-blue-500/5">
+
+            {/* Modales */}
             <AnimatePresence>
                 {showContextModal && (
                     <ClinicalContextModal
-                        docType={documentType}
                         docConfig={currentDocConfig}
                         onConfirm={initiateRecordingAfterContext}
                         onCancel={() => setShowContextModal(false)}
@@ -777,7 +802,6 @@ const AudioRecorder = () => {
                 )}
             </AnimatePresence>
 
-            {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
             <AnimatePresence>
                 {showDeleteConfirm && (
                     <motion.div
@@ -825,7 +849,6 @@ const AudioRecorder = () => {
                 )}
             </AnimatePresence>
 
-            {/* MODAL DE NUEVO DICTADO */}
             <AnimatePresence>
                 {showNewDictationOptions && (
                     <motion.div
@@ -864,8 +887,9 @@ const AudioRecorder = () => {
                                         className="w-5 h-5 text-blue-500 group-hover:scale-110 transition-transform"/>
                                     <div className="text-left">
                                         <div className="font-semibold text-blue-700 text-sm">Mismo Tipo</div>
-                                        <div className="text-xs text-blue-600">Continuar
-                                            con {currentDocConfig.label}</div>
+                                        <div className="text-xs text-blue-600">
+                                            Continuar con {currentDocConfig.label}
+                                        </div>
                                     </div>
                                 </motion.button>
 
@@ -896,47 +920,96 @@ const AudioRecorder = () => {
                 )}
             </AnimatePresence>
 
-            <div className="flex items-center justify-between mb-6">
-                <div>
-                    <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-                        Sistema de Dictado Médico
-                    </h2>
-                    <p className="text-gray-500 text-sm mt-1">Profesional • Seguro • Eficiente</p>
+            {/* HEADER: icono + estado + reloj global */}
+            <div className="flex items-center justify-between mb-6 gap-4">
+                <div className="flex items-center gap-4">
+                    <div className="relative">
+                        <div
+                            className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-500 flex items-center justify-center shadow-lg">
+                            <Mic className="w-6 h-6 text-white"/>
+                        </div>
+                        <div
+                            className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white border border-sky-100 flex items-center justify-center shadow-sm">
+                            <Sparkles className="w-3 h-3 text-sky-500"/>
+                        </div>
+                    </div>
+                    <div>
+                        <h2
+                            className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+                            Sistema de Dictado Médico
+                        </h2>
+                        <p className="text-gray-500 text-sm mt-1">
+                            Dictado clínico asistido por IA para informes y documentos médicos.
+                        </p>
+                    </div>
                 </div>
-                <div className={`px-3 py-1 rounded-xl text-xs font-semibold backdrop-blur-sm border ${
-                    recordingState === 'recording' ? 'bg-gradient-to-r from-red-500/10 to-orange-500/10 border-red-200 text-red-700' :
-                        recordingState === 'paused' ? 'bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border-yellow-200 text-yellow-700' :
-                            recordingState === 'processing' ? 'bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-blue-200 text-blue-700' :
-                                recordingState === 'completed' ? 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-200 text-green-700' :
-                                    'bg-gradient-to-r from-gray-500/10 to-gray-400/10 border-gray-200 text-gray-700'
-                }`}>
-                    {{
-                        'idle': '🟢 Listo para Dictar',
-                        'recording': '🔴 Grabando Dictado',
-                        'paused': '🟡 Grabación Pausada',
-                        'recorded': '🟣 Dictado Grabado',
-                        'processing': '🔄 Procesando',
-                        'completed': '✅ Completado'
-                    }[recordingState]}
+
+                <div className="flex flex-col items-end gap-2">
+                    <div className={`px-3 py-1 rounded-xl text-xs font-semibold backdrop-blur-sm border ${
+                        recordingState === 'recording'
+                            ? 'bg-gradient-to-r from-red-500/10 to-orange-500/10 border-red-200 text-red-700'
+                            : recordingState === 'paused'
+                                ? 'bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border-yellow-200 text-yellow-700'
+                                : recordingState === 'processing'
+                                    ? 'bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-blue-200 text-blue-700'
+                                    : recordingState === 'completed'
+                                        ? 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-200 text-green-700'
+                                        : 'bg-gradient-to-r from-gray-500/10 to-gray-400/10 border-gray-200 text-gray-700'
+                    }`}>
+                        {{
+                            'idle': '🟢 Listo para Dictar',
+                            'recording': '🔴 Grabando Dictado',
+                            'paused': '🟡 Grabación Pausada',
+                            'recorded': '🟣 Dictado Grabado',
+                            'processing': '🔄 Procesando Dictado',
+                            'completed': '✅ Documento Generado'
+                        }[recordingState]}
+                    </div>
+
+                    {processingDuration > 0 && (
+                        <div
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 text-[11px] text-sky-100 shadow-md border border-slate-800">
+                            <Activity className="w-3.5 h-3.5 text-emerald-300"/>
+                            <span className="font-mono tracking-widest">
+                                {formatTime(processingDuration)}
+                            </span>
+                            <span className="uppercase tracking-[0.16em] text-[10px] text-sky-200/80">
+                                tiempo de proceso
+                            </span>
+                        </div>
+                    )}
                 </div>
             </div>
 
+            {/* Banners de estado */}
             {recordingState === 'processing' && processingSteps.length > 0 && (
                 <motion.div
                     initial={{opacity: 0, y: -10}}
                     animate={{opacity: 1, y: 0}}
                     className="mb-6 bg-gradient-to-br from-blue-50/80 to-indigo-50/80 rounded-xl border border-blue-200/50 p-4 backdrop-blur-sm"
                 >
-                    <div className="flex items-center space-x-3 mb-4">
-                        <div
-                            className="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg">
-                            <Shield className="w-5 h-5 text-white"/>
+                    <div className="flex items-center justify-between mb-4 gap-4">
+                        <div className="flex items-center space-x-3">
+                            <div
+                                className="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg">
+                                <Shield className="w-5 h-5 text-white"/>
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                                    Procesamiento Médico
+                                </h3>
+                                <p className="text-blue-600/70 text-sm">
+                                    Orquestando carga, transcripción y generación del informe.
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <h3 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                                Procesamiento Médico
-                            </h3>
-                            <p className="text-blue-600/70 text-sm">Procesando su dictado de forma segura</p>
+
+                        {/* Progreso visual en lugar de segundo reloj */}
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 border border-blue-200 text-xs text-blue-800 shadow-sm">
+                            <span className="font-semibold">Progreso</span>
+                            <span className="font-mono">
+                                {Math.min(currentStepIndex + 1, totalSteps)} / {totalSteps}
+                            </span>
                         </div>
                     </div>
 
@@ -946,7 +1019,7 @@ const AudioRecorder = () => {
                                 key={step.key}
                                 initial={{opacity: 0, x: -20}}
                                 animate={{opacity: 1, x: 0}}
-                                transition={{delay: index * 0.1}}
+                                transition={{delay: index * 0.08}}
                                 className="flex items-center space-x-4 p-4 bg-white/80 rounded-xl border border-gray-200/50 backdrop-blur-sm shadow-lg shadow-blue-500/5"
                             >
                                 {getStepIcon(step)}
@@ -956,7 +1029,7 @@ const AudioRecorder = () => {
                                             {step.title}
                                         </span>
                                         {step.status === 'active' && (
-                                            <div className={`w-2 h-2 rounded-full ${step.pulseColor} animate-ping`}/>
+                                            <div className={`${step.pulseColor} w-2 h-2 rounded-full animate-ping`}/>
                                         )}
                                     </div>
                                     <p className="text-gray-600 text-sm">{step.description}</p>
@@ -973,12 +1046,12 @@ const AudioRecorder = () => {
                     animate={{opacity: 1, y: 0}}
                     className={`mb-6 p-4 rounded-xl border backdrop-blur-sm ${
                         uploadStatus === 'success'
-                            ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200/50 text-green-800 shadow-lg shadow-green-500/10' :
-                            uploadStatus === 'error'
-                                ? 'bg-gradient-to-r from-red-50 to-pink-50 border-red-200/50 text-red-800 shadow-lg shadow-red-500/10' :
-                                uploadStatus === 'processing'
-                                    ? 'bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200/50 text-blue-800 shadow-lg shadow-blue-500/10' :
-                                    'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-200/50 text-yellow-800 shadow-lg shadow-yellow-500/10'
+                            ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200/50 text-green-800 shadow-lg shadow-green-500/10'
+                            : uploadStatus === 'error'
+                                ? 'bg-gradient-to-r from-red-50 to-pink-50 border-red-200/50 text-red-800 shadow-lg shadow-red-500/10'
+                                : uploadStatus === 'processing'
+                                    ? 'bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200/50 text-blue-800 shadow-lg shadow-blue-500/10'
+                                    : 'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-200/50 text-yellow-800 shadow-lg shadow-yellow-500/10'
                     }`}
                 >
                     <div className="flex items-center space-x-3">
@@ -1001,31 +1074,19 @@ const AudioRecorder = () => {
                                     className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/>
                             </div>
                         )}
-                        {uploadStatus === 'info' && (
-                            <div
-                                className="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg">
-                                <Clock className="w-5 h-5 text-white"/>
-                            </div>
-                        )}
-                        {uploadStatus === 'warning' && (
-                            <div
-                                className="w-10 h-10 bg-gradient-to-r from-yellow-500 to-amber-500 rounded-xl flex items-center justify-center shadow-lg">
-                                <AlertCircle className="w-5 h-5 text-white"/>
-                            </div>
-                        )}
                         <p className="font-semibold text-base">{statusMessage}</p>
                     </div>
                 </motion.div>
             )}
 
-            {/* Mostrar metadatos capturados cuando no está en IDLE */}
+            {/* Metadatos capturados */}
             {recordingState !== 'idle' && (
                 <motion.div
                     initial={{opacity: 0}}
                     animate={{opacity: 1}}
                     className="mb-6 p-4 bg-gray-100/70 rounded-xl border border-gray-200 shadow-inner text-sm"
                 >
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
                         <div className="flex items-center space-x-2 text-gray-700">
                             <User className="w-4 h-4 text-blue-500"/>
                             <span className="font-semibold">Paciente:</span>
@@ -1045,6 +1106,7 @@ const AudioRecorder = () => {
                 </motion.div>
             )}
 
+            {/* Selección de tipo */}
             {recordingState === 'idle' && (
                 <motion.div
                     initial={{opacity: 0, y: 20}}
@@ -1086,6 +1148,7 @@ const AudioRecorder = () => {
                 </motion.div>
             )}
 
+            {/* Zona de grabación / resultado */}
             <div className="space-y-6">
                 {recordingState !== 'completed' ? (
                     <div className="text-center">
@@ -1094,7 +1157,9 @@ const AudioRecorder = () => {
                                 <div
                                     className="flex items-center justify-center space-x-2 text-base font-semibold text-gray-600 mb-4">
                                     <div className={`w-2 h-2 rounded-full ${
-                                        recordingState === 'paused' ? 'bg-gradient-to-r from-yellow-500 to-amber-500' : 'bg-gradient-to-r from-red-500 to-orange-500'
+                                        recordingState === 'paused'
+                                            ? 'bg-gradient-to-r from-yellow-500 to-amber-500'
+                                            : 'bg-gradient-to-r from-red-500 to-orange-500'
                                     } animate-pulse shadow-lg`}/>
                                     <span className="text-sm">
                                         {recordingState === 'paused' ? 'DICTADO PAUSADO' : 'GRABANDO DICTADO MÉDICO'}
@@ -1131,9 +1196,9 @@ const AudioRecorder = () => {
                         <div className="flex justify-center space-x-4">
                             {recordingState === 'idle' ? (
                                 <motion.button
-                                    onClick={startRecording} // Ahora abre el modal
+                                    onClick={startRecording}
                                     className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white rounded-xl font-bold text-base shadow-xl shadow-red-500/25 transition-all duration-300 group"
-                                    whileHover={{scale: 1.03, shadow: "0 15px 30px -8px rgba(239, 68, 68, 0.3)"}}
+                                    whileHover={{scale: 1.03}}
                                     whileTap={{scale: 0.97}}
                                 >
                                     <Mic className="w-4 h-4 group-hover:scale-110 transition-transform"/>
@@ -1151,7 +1216,9 @@ const AudioRecorder = () => {
                                             <Play className="w-4 h-4 group-hover:scale-110 transition-transform"/> :
                                             <Pause className="w-4 h-4 group-hover:scale-110 transition-transform"/>
                                         }
-                                        <span className="text-sm">{recordingState === 'paused' ? 'Reanudar' : 'Pausar'}</span>
+                                        <span className="text-sm">
+                                            {recordingState === 'paused' ? 'Reanudar' : 'Pausar'}
+                                        </span>
                                     </motion.button>
 
                                     <motion.button
@@ -1239,7 +1306,11 @@ const AudioRecorder = () => {
                                             Proceso Médico Completado
                                         </h3>
                                         <p className="text-green-700/80 text-sm mt-1">
-                                            Dictado transcrito y documento médico generado exitosamente
+                                            Informe generado en{' '}
+                                            <span className="font-semibold">
+                                                {formatTime(processingDuration)}
+                                            </span>{' '}
+                                            minutos.
                                         </p>
                                     </div>
                                 </div>
@@ -1277,34 +1348,6 @@ const AudioRecorder = () => {
                             </div>
                         </div>
 
-                        <div
-                            className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl border border-blue-200/50 shadow-lg overflow-hidden">
-                            <div
-                                className="p-4 border-b border-blue-200/50 bg-gradient-to-r from-blue-500/5 to-cyan-500/5">
-                                <h3 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent flex items-center">
-                                    <FileText className="w-5 h-5 mr-2"/>
-                                    Transcripción Médica
-                                </h3>
-                            </div>
-                            <div className="p-4">
-                                <div className="bg-white rounded-lg border border-blue-100 p-4 shadow-inner">
-                                    <p className="text-blue-800 whitespace-pre-wrap leading-relaxed text-sm min-h-[80px]">
-                                        {transcript}
-                                    </p>
-                                </div>
-                                <div className="flex justify-end mt-3">
-                                    <motion.button
-                                        onClick={handleCopyTranscript}
-                                        className="flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-lg font-semibold shadow-lg shadow-blue-500/25 transition-all duration-200 text-sm"
-                                        whileHover={{scale: 1.03}}
-                                    >
-                                        <Copy className="w-3 h-3"/>
-                                        <span>Copiar Texto</span>
-                                    </motion.button>
-                                </div>
-                            </div>
-                        </div>
-
                         {generatedDocument && (
                             <div
                                 className={`rounded-xl border shadow-lg overflow-hidden bg-gradient-to-br ${currentDocConfig.lightGradient} border-${currentDocConfig.color}-200/50`}>
@@ -1317,7 +1360,6 @@ const AudioRecorder = () => {
                                                 Documento Médico - {currentDocConfig.label}
                                             </span>
                                         </div>
-                                        {/* Botón de Editar siempre visible si no estamos editando */}
                                         {!isEditingDocument && (
                                             <motion.button
                                                 onClick={handleEditDocument}
@@ -1360,9 +1402,11 @@ const AudioRecorder = () => {
                                     ) : (
                                         <>
                                             <div className="bg-white rounded-lg border border-gray-100 p-4 shadow-inner max-h-64 overflow-y-auto">
-                                                <pre className="whitespace-pre-wrap leading-relaxed text-gray-800 text-sm">
-                                                    {generatedDocument.content}
-                                                </pre>
+                                                <div className="markdown-body text-gray-800 text-sm">
+                                                    <Markdown options={MarkdownOptions}>
+                                                        {getCleanContent(generatedDocument.content)}
+                                                    </Markdown>
+                                                </div>
                                             </div>
                                             <div className="flex justify-end space-x-3 mt-3">
                                                 <motion.button
@@ -1372,14 +1416,6 @@ const AudioRecorder = () => {
                                                 >
                                                     <Copy className="w-3 h-3"/>
                                                     <span>Copiar</span>
-                                                </motion.button>
-                                                <motion.button
-                                                    onClick={handleDownloadDocument}
-                                                    className={`flex items-center space-x-2 px-3 py-2 bg-gradient-to-r ${currentDocConfig.gradient} hover:brightness-110 text-white rounded-lg font-semibold shadow-lg ${currentDocConfig.shadow} transition-all duration-200 text-sm`}
-                                                    whileHover={{scale: 1.03}}
-                                                >
-                                                    <Download className="w-3 h-3"/>
-                                                    <span>Descargar</span>
                                                 </motion.button>
                                             </div>
                                         </>
@@ -1410,6 +1446,7 @@ const AudioRecorder = () => {
                             <motion.button
                                 className="flex items-center justify-center space-x-2 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl font-bold text-sm shadow-xl shadow-purple-500/25 transition-all duration-300 group"
                                 whileHover={{scale: 1.03}}
+                                onClick={handleDownloadDocument}
                             >
                                 <FileDown className="w-4 h-4 group-hover:scale-110 transition-transform"/>
                                 <span>Exportar a HIS</span>
