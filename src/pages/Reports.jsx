@@ -44,7 +44,7 @@ const DOCUMENT_TYPES_MAP = {
     }
 };
 
-const PAGE_SIZE = 6;
+const PAGE_SIZE = 3;
 
 const Reports = ({ onViewDocument, notifications }) => {
     const [documents, setDocuments] = useState([]);
