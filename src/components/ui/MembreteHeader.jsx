@@ -3,10 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-    Mail, Phone, MapPin, Briefcase, Heart, Hospital,
-    Shield, Star, Award, Zap, Sparkles, Activity,
-    Brain, Microscope, Stethoscope, Scan, Gem,
-    Cross, ActivityIcon
+    Mail, Phone, MapPin, Briefcase, Heart,
+    Shield, Award, Activity, Stethoscope, Cross
 } from 'lucide-react';
 
 /**
@@ -61,7 +59,7 @@ const MembreteHeader = ({ tenantMetadata, isPrintMode = false }) => {
                         duration: 6 + Math.random() * 4,
                         repeat: Infinity,
                         delay: Math.random() * 3,
-                        ease: "easeInOut"
+                        ease: 'easeInOut'
                     }}
                     style={{
                         left: `${Math.random() * 100}%`,
@@ -79,7 +77,7 @@ const MembreteHeader = ({ tenantMetadata, isPrintMode = false }) => {
                 <motion.div
                     className="relative"
                     whileHover={{ scale: 1.05 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 10 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 10 }}
                 >
                     <img
                         src={logo_url}
@@ -99,12 +97,14 @@ const MembreteHeader = ({ tenantMetadata, isPrintMode = false }) => {
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
             >
-                <div className={`relative w-16 h-16 rounded-xl flex items-center justify-center 
-                                ${isPrintMode
-                    ? 'bg-gradient-to-br from-blue-50 to-teal-50 border-2 border-blue-200'
-                    : 'bg-gradient-to-br from-blue-500 to-teal-500 shadow-lg shadow-blue-500/25'
-                } print:w-14 print:h-14 print:bg-white print:border-2 print:border-blue-300`}>
-
+                <div
+                    className={`relative w-16 h-16 rounded-xl flex items-center justify-center 
+                                ${
+                        isPrintMode
+                            ? 'bg-gradient-to-br from-blue-50 to-teal-50 border-2 border-blue-200'
+                            : 'bg-gradient-to-br from-blue-500 to-teal-500 shadow-lg shadow-blue-500/25'
+                    } print:w-14 print:h-14 print:bg-white print:border-2 print:border-blue-300`}
+                >
                     {/* Cruz médica sutil */}
                     <motion.div
                         className="absolute inset-0 flex items-center justify-center"
@@ -115,7 +115,7 @@ const MembreteHeader = ({ tenantMetadata, isPrintMode = false }) => {
                         transition={{
                             duration: 3,
                             repeat: Infinity,
-                            ease: "easeInOut"
+                            ease: 'easeInOut'
                         }}
                     >
                         <Cross className="w-10 h-10 text-white/20" />
@@ -127,7 +127,11 @@ const MembreteHeader = ({ tenantMetadata, isPrintMode = false }) => {
                         }}
                         transition={{ duration: 0.3 }}
                     >
-                        <Heart className={`w-8 h-8 ${isPrintMode ? 'text-blue-600' : 'text-white'} print:w-6 print:h-6`} />
+                        <Heart
+                            className={`w-8 h-8 ${
+                                isPrintMode ? 'text-blue-600' : 'text-white'
+                            } print:w-6 print:h-6`}
+                        />
                     </motion.div>
 
                     {/* Puntos médicos decorativos */}
@@ -191,12 +195,12 @@ const MembreteHeader = ({ tenantMetadata, isPrintMode = false }) => {
                     <motion.div
                         className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent"
                         animate={{
-                            x: [-100, 100],
+                            x: [-100, 100]
                         }}
                         transition={{
                             duration: 8,
                             repeat: Infinity,
-                            ease: "linear"
+                            ease: 'linear'
                         }}
                     />
                 </div>
@@ -290,8 +294,10 @@ const MembreteHeader = ({ tenantMetadata, isPrintMode = false }) => {
                             </div>
 
                             <div className="flex items-center space-x-1 bg-teal-100 px-2 py-1 rounded border border-teal-200">
-                                <ActivityIcon className="w-3 h-3 text-teal-600" />
-                                <span className="text-xs text-teal-700 font-semibold">ISO 13485</span>
+                                <Activity className="w-3 h-3 text-teal-600" />
+                                <span className="text-xs text-teal-700 font-semibold">
+                                    ISO 13485
+                                </span>
                             </div>
                         </div>
                     </motion.div>
@@ -310,7 +316,6 @@ const MembreteHeader = ({ tenantMetadata, isPrintMode = false }) => {
         >
             {/* Header Principal para Impresión */}
             <div className="flex items-center justify-between mb-3 print:mb-2">
-
                 {/* Logo e Información de la Institución */}
                 <div className="flex items-center space-x-3 flex-1">
                     {renderLogo()}
@@ -332,7 +337,7 @@ const MembreteHeader = ({ tenantMetadata, isPrintMode = false }) => {
                 </div>
 
                 {/* Información de Contacto */}
-                <div className="text-right text-xs text-slate-700 space-y-1 print:text-2xs">
+                <div className="text-right text-xs text-slate-700 space-y-1 print:text-[0.65rem]">
                     {address && (
                         <div className="flex items-center justify-end space-x-1">
                             <MapPin className="w-3 h-3 text-blue-600 print:w-2 print:h-2" />
@@ -359,18 +364,18 @@ const MembreteHeader = ({ tenantMetadata, isPrintMode = false }) => {
                 <motion.div
                     className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent"
                     animate={{
-                        x: [-100, 100],
+                        x: [-100, 100]
                     }}
                     transition={{
                         duration: 3,
                         repeat: Infinity,
-                        ease: "linear"
+                        ease: 'linear'
                     }}
                 />
             </div>
 
             {/* Información de Contacto Inferior */}
-            <div className="flex justify-between items-center mt-2 text-2xs text-slate-600 print:mt-1">
+            <div className="flex justify-between items-center mt-2 text-[0.65rem] text-slate-600 print:mt-1">
                 <div className="flex items-center space-x-3">
                     <span className="flex items-center space-x-1">
                         <Mail className="w-2 h-2 text-blue-600" />
