@@ -2,18 +2,19 @@ import React, {useState, useEffect, useRef} from 'react';
 import {motion} from 'framer-motion';
 import {
     FileText, Search, User, Clock, CheckCircle, AlertCircle, Radiation,
-    Stethoscope, Pill, Download, MessageSquare, ClipboardList, RotateCcw
+    Stethoscope, Pill, Download, MessageSquare, ClipboardList, RotateCcw,
+    Upload, Edit3 // Añadimos Upload para el icono de exportar
 } from 'lucide-react';
 import {clinicalService} from '../services/clinical';
 import PaginationControls from '../components/ui/PaginationControls';
 
 // Definición de tipos de documentos (para color y mapeo)
 const DOCUMENT_TYPES_MAP = {
-    clinical_history: {label: 'Historia Clínica', color: 'indigo', icon: Stethoscope},
-    radiology_report: {label: 'Informe Radiológico', color: 'amber', icon: Radiation},
-    medical_prescription: {label: 'Fórmula Médica', color: 'emerald', icon: Pill},
-    medical_certificate: {label: 'Certificado Médico', color: 'purple', icon: FileText},
-    incapacity: {label: 'Incapacidad', color: 'red', icon: ClipboardList}
+    clinical_history: {label: 'Historia Clínica', color: 'indigo', icon: Stethoscope, gradient: 'from-indigo-500 to-blue-500'},
+    radiology_report: {label: 'Informe Radiológico', color: 'amber', icon: Radiation, gradient: 'from-amber-500 to-orange-500'},
+    medical_prescription: {label: 'Fórmula Médica', color: 'emerald', icon: Pill, gradient: 'from-emerald-500 to-green-500'},
+    medical_certificate: {label: 'Certificado Médico', color: 'purple', icon: FileText, gradient: 'from-purple-500 to-pink-500'},
+    incapacity: {label: 'Incapacidad', color: 'red', icon: ClipboardList, gradient: 'from-red-500 to-pink-500'}
 };
 
 const PAGE_SIZE = 6; // Constante para tamaño de página
@@ -30,7 +31,7 @@ const Reports = ({onViewDocument, notifications, tenantMetadata}) => {
 
     const {success, error: notifyError, info} = notifications;
 
-    // Bandera para evitar la notificación en la primera carga (YA NO ES NECESARIA, pero la dejamos por si acaso)
+    // Bandera para evitar la notificación en la primera carga
     const isInitialMount = useRef(true);
 
     // **CAMBIO CLAVE 1:** Este efecto ahora controla la recarga automática al cambiar filtros.
@@ -40,7 +41,6 @@ const Reports = ({onViewDocument, notifications, tenantMetadata}) => {
             setCurrentPage(1);
         } else {
             // Si ya estamos en la página 1, cargamos inmediatamente.
-            // Usamos 'false' para no notificar al usuario en cada pulsación de tecla.
             loadDocuments(false);
         }
     }, [searchQuery, filterType]);
@@ -82,7 +82,7 @@ const Reports = ({onViewDocument, notifications, tenantMetadata}) => {
         }
     };
 
-    // **CAMBIO CLAVE 3:** Eliminamos handleManualLoad, pero la lógica de 'Actualizar' debe recargar con notificación.
+    // Función que se llama con el botón "Aplicar Filtros" y "Actualizar"
     const handleRefreshLoad = () => {
         if (currentPage !== 1) {
             setCurrentPage(1); // Esto dispara el useEffect y luego loadDocuments(false)
@@ -141,7 +141,6 @@ const Reports = ({onViewDocument, notifications, tenantMetadata}) => {
             </div>
 
             {/* Filtros y Búsqueda */}
-            {/* **CAMBIO CLAVE 4:** Eliminamos la columna y el botón "Aplicar Filtros". */}
             <div
                 className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-white/70 rounded-2xl shadow-md border border-gray-100">
                 <div className="relative">
@@ -181,11 +180,11 @@ const Reports = ({onViewDocument, notifications, tenantMetadata}) => {
                 </div>
             ) : (
                 <div className="space-y-4">
-                    {/* Tarjetas de Documentos (Solo 5 por página) */}
                     {documents.map((doc) => {
+                        // Obtenemos la configuración completa, incluyendo el nuevo degradado
                         const typeConfig = DOCUMENT_TYPES_MAP[doc.document_type] || DOCUMENT_TYPES_MAP.clinical_history;
                         const DocIcon = typeConfig.icon;
-                        const statusColor = doc.is_synced ? 'green' : doc.is_finalized ? 'blue' : 'amber';
+                        const statusColor = doc.is_synced ? 'emerald' : doc.is_finalized ? 'blue' : 'amber';
                         const statusText = doc.is_synced ? 'Sincronizado HIS' : doc.is_finalized ? 'Finalizado' : 'Borrador';
 
                         return (
@@ -193,58 +192,71 @@ const Reports = ({onViewDocument, notifications, tenantMetadata}) => {
                                 key={doc.id}
                                 initial={{opacity: 0, y: 10}}
                                 animate={{opacity: 1, y: 0}}
-                                className="bg-white/90 backdrop-blur-md rounded-2xl p-5 shadow-lg border border-gray-200/50 flex justify-between items-start hover:shadow-xl transition-all"
-                                whileHover={{scale: 1.005}}
+                                className="bg-white rounded-2xl p-5 shadow-xl border-2 border-slate-100 hover:border-blue-100 transition-all flex justify-between items-center"
+                                whileHover={{scale: 1.005, y: -2}}
                             >
-                                <div className="flex space-x-4 flex-1 min-w-0">
+                                <div className="flex space-x-5 flex-1 min-w-0 items-center">
+                                    {/* Ícono de Documento con Degradado y Sombra Moderna */}
                                     <div
-                                        className={`p-3 rounded-xl bg-${typeConfig.color}-500/10 border border-${typeConfig.color}-200 flex items-center justify-center`}>
-                                        <DocIcon className={`w-6 h-6 text-${typeConfig.color}-600`}/>
+                                        className={`w-12 h-12 rounded-xl bg-gradient-to-br ${typeConfig.gradient} flex items-center justify-center shadow-lg shadow-${typeConfig.color}-500/20`}>
+                                        <DocIcon className="w-6 h-6 text-white"/>
                                     </div>
+
                                     <div className="flex-1 min-w-0">
                                         <h3 className="text-lg font-bold text-gray-900 truncate mb-1">{doc.title}</h3>
-                                        <p className="text-gray-600 text-sm truncate max-w-full">
-                                            Paciente ID: <span
-                                            className="font-semibold text-blue-600">{doc.clinical_meta.patient_id || 'N/A'}</span>
+                                        <p className="text-gray-600 text-sm truncate max-w-full font-medium">
+                                            <span className="font-semibold text-slate-800">Paciente:</span> {doc.clinical_meta.patient_id || 'N/A'}
                                         </p>
-                                        <div className="flex items-center space-x-4 text-xs mt-2 text-gray-500">
-                                            <div className="flex items-center space-x-1">
-                                                <User className="w-3 h-3"/>
-                                                <span>{doc.clinical_meta.doctor_name || 'Desconocido'}</span>
-                                            </div>
-                                            <div className="flex items-center space-x-1">
-                                                <Clock className="w-3 h-3"/>
-                                                <span>{new Date(doc.created_at).toLocaleDateString()}</span>
-                                            </div>
-                                        </div>
                                     </div>
                                 </div>
 
-                                {/* Acciones y Estado */}
-                                <div className="flex flex-col items-end space-y-2 flex-shrink-0">
+                                {/* Metadata y Acciones */}
+                                <div className="flex space-x-6 flex-shrink-0 items-center">
+                                    {/* Información Detallada (Médico y Fecha) */}
+                                    <div className="text-sm text-right space-y-1 text-gray-600 hidden sm:block">
+                                        <p className="flex items-center space-x-1 justify-end font-medium">
+                                            <Stethoscope className="w-4 h-4 text-indigo-500"/>
+                                            <span>{doc.clinical_meta.doctor_name || 'Desconocido'}</span>
+                                        </p>
+                                        <p className="flex items-center space-x-1 justify-end text-xs">
+                                            <Clock className="w-3 h-3 text-slate-400"/>
+                                            <span>{new Date(doc.created_at).toLocaleDateString()}</span>
+                                        </p>
+                                    </div>
+
+                                    {/* Estado */}
                                     <span
-                                        className={`px-3 py-1 rounded-full text-xs font-semibold bg-${statusColor}-500/10 text-${statusColor}-700 border border-${statusColor}-200`}>
+                                        className={`px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm ${
+                                            statusColor === 'emerald' ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-200' :
+                                                statusColor === 'blue' ? 'bg-blue-500/10 text-blue-700 border border-blue-200' :
+                                                    'bg-amber-500/10 text-amber-700 border border-amber-200'
+                                        }`}
+                                    >
                                         {statusText}
                                     </span>
+
+                                    {/* Botones de Acción */}
                                     <div className="flex space-x-2">
+                                        {/* Botón de Ver/Editar */}
                                         <motion.button
                                             title="Ver/Editar Documento"
-                                            className="p-2 bg-blue-50/70 rounded-full text-blue-600 hover:bg-blue-100 transition-colors"
+                                            className="p-3 bg-indigo-500/10 rounded-full text-indigo-600 hover:bg-indigo-100 transition-colors shadow-md"
                                             whileHover={{scale: 1.1}}
-                                            // Llamada al Dashboard para cambiar la vista
                                             onClick={() => onViewDocument(doc.id)}
                                         >
-                                            <MessageSquare className="w-4 h-4"/>
+                                            <Edit3 className="w-5 h-5"/>
                                         </motion.button>
 
+                                        {/* Botón de Exportar/Subir al HIS */}
                                         {!doc.is_synced && doc.is_finalized && (
                                             <motion.button
-                                                title="Exportar a HIS"
-                                                className="p-2 bg-emerald-500/10 rounded-full text-emerald-600 hover:bg-emerald-100 transition-colors"
+                                                title="Subir a HIS"
+                                                className="p-3 bg-emerald-500/10 rounded-full text-emerald-600 hover:bg-emerald-100 transition-colors shadow-md"
                                                 whileHover={{scale: 1.1}}
                                                 onClick={() => handleExportToHis(doc.id, doc.title)}
                                             >
-                                                <Download className="w-4 h-4"/>
+                                                {/* CAMBIO CLAVE: Usamos Upload para representar la acción de Sincronizar/Subir */}
+                                                <Upload className="w-5 h-5"/>
                                             </motion.button>
                                         )}
                                     </div>

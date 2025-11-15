@@ -200,14 +200,21 @@ const DocumentView = ({ documentId, onBack, notifications, tenantMetadata }) => 
         const institutionName = tenantMetadata?.name || 'Institución Médica';
 
         return (
-            <div className="print-footer text-center text-xs text-slate-600 mt-8 pt-4 border-t border-slate-300">
-                <p className="font-semibold text-slate-700">{institutionName}</p>
+            <div
+                className="print-footer text-center text-xs text-slate-600 mt-3 pt-2 border-t border-slate-300"
+                style={{
+                    pageBreakInside: 'avoid',
+                    breakInside: 'avoid',
+                    pageBreakBefore: 'avoid'
+                }}
+            >
+                <p className="font-semibold text-slate-800">{institutionName}</p>
                 <p className="mt-1 flex items-center justify-center">
-                    <Mail className="inline-block w-3 h-3 mr-1 align-middle print:hidden" /> contact@datavox.com
-                    <span className="mx-2 print:hidden">|</span>
-                    <Briefcase className="inline-block w-3 h-3 mr-1 align-middle print:hidden" /> {legalId}
+                    <Mail className="inline-block w-3 h-3 mr-1 align-middle" /> contact@datavox.com
+                    <span className="mx-2">|</span>
+                    <Briefcase className="inline-block w-3 h-3 mr-1 align-middle" /> {legalId}
                 </p>
-                <p className="mt-2 text-slate-500">
+                <p className="mt-1 text-slate-500">
                     Plataforma Inteligente de Salud potenciada por DataVoxMedical
                 </p>
             </div>
