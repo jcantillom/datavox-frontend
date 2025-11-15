@@ -271,7 +271,7 @@ const DocumentView = ({ documentId, onBack, notifications, tenantMetadata }) => 
                             disabled={isSaving}
                         />
                     ) : (
-                        <div className="w-full min-h-[400px] p-6 border border-slate-200 bg-slate-50 rounded-lg overflow-y-auto shadow-inner text-slate-800 whitespace-pre-wrap text-sm print:shadow-none print:bg-white print:border-none print:p-0 print:text-black print:overflow-visible print:min-h-auto print:whitespace-pre-line">
+                        <div className="w-full min-h-[400px] p-6 border border-slate-200 bg-slate-100 rounded-lg overflow-y-auto shadow-inner text-slate-800 whitespace-pre-wrap text-sm print:shadow-none print:bg-white print:border-none print:p-0 print:text-black print:overflow-visible print:min-h-auto print:whitespace-pre-line">
 
                             {/* --- CONTENIDO ESPECÍFICO PARA IMPRESIÓN (PDF) --- */}
                             <div className="hidden print:block print:p-0 print:m-0 print:w-full print:h-full print:flex print:flex-col">
