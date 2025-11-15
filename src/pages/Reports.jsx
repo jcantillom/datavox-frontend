@@ -18,7 +18,6 @@ const DOCUMENT_TYPES_MAP = {
 
 const PAGE_SIZE = 6; // Constante para tamaño de página
 
-// CAMBIO: Recibir tenantMetadata en Reports
 const Reports = ({onViewDocument, notifications, tenantMetadata}) => {
     const [documents, setDocuments] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -31,16 +30,25 @@ const Reports = ({onViewDocument, notifications, tenantMetadata}) => {
 
     const {success, error: notifyError, info} = notifications;
 
-    // Bandera para evitar la notificación en la primera carga
+    // Bandera para evitar la notificación en la primera carga (YA NO ES NECESARIA, pero la dejamos por si acaso)
     const isInitialMount = useRef(true);
 
+    // **CAMBIO CLAVE 1:** Este efecto ahora controla la recarga automática al cambiar filtros.
     useEffect(() => {
-        // Al cambiar los filtros o el query, volvemos a la página 1.
-        setCurrentPage(1);
+        // Al cambiar los filtros o el query, reiniciamos a la página 1.
+        if (currentPage !== 1) {
+            setCurrentPage(1);
+        } else {
+            // Si ya estamos en la página 1, cargamos inmediatamente.
+            // Usamos 'false' para no notificar al usuario en cada pulsación de tecla.
+            loadDocuments(false);
+        }
     }, [searchQuery, filterType]);
 
+    // **CAMBIO CLAVE 2:** Este efecto se dispara solo cuando cambia la página.
     useEffect(() => {
-        loadDocuments(false); // Siempre recargamos al cambiar la página
+        // Este efecto recarga si currentPage cambia (por paginador) o si es la carga inicial.
+        loadDocuments(false);
     }, [currentPage]);
 
     // Función modificada para controlar la notificación
@@ -54,14 +62,12 @@ const Reports = ({onViewDocument, notifications, tenantMetadata}) => {
                 page: currentPage, // USAR currentPage
                 pageSize: PAGE_SIZE, // USAR PAGE_SIZE
             };
-            // CAMBIO: Obtiene { data, total }
+
             const result = await clinicalService.listDocuments(filters);
 
-            // CORRECCIÓN CLAVE: Asignar el array de documentos de result.data
             setDocuments(result.data || []);
-            setTotalDocuments(result.total || 0); // GUARDAR TOTAL
+            setTotalDocuments(result.total || 0);
 
-            // CORRECCIÓN: Solo notificar si la función fue llamada manualmente
             if (notifyOnComplete) {
                 info(`Listado de reportes actualizado. ${result.total} documentos encontrados.`, 3000);
             }
@@ -70,20 +76,18 @@ const Reports = ({onViewDocument, notifications, tenantMetadata}) => {
             setError("No se pudieron cargar los reportes clínicos.");
             notifyError("Error de conexión: No se pudieron cargar los reportes.", 8000);
             setDocuments([]);
-            setTotalDocuments(0); // Reiniciar en caso de error
+            setTotalDocuments(0);
         } finally {
             setLoading(false);
         }
     };
 
-    // Función que se llama con el botón "Aplicar Filtros" y "Actualizar"
-    const handleManualLoad = () => {
-        // Si no está en página 1, ir a página 1 (que disparará el useEffect con notificación)
+    // **CAMBIO CLAVE 3:** Eliminamos handleManualLoad, pero la lógica de 'Actualizar' debe recargar con notificación.
+    const handleRefreshLoad = () => {
         if (currentPage !== 1) {
-            setCurrentPage(1);
+            setCurrentPage(1); // Esto dispara el useEffect y luego loadDocuments(false)
         } else {
-            // Si ya está en página 1, cargar con notificación
-            loadDocuments(true);
+            loadDocuments(true); // Recarga la página actual con notificación
         }
     }
 
@@ -95,15 +99,13 @@ const Reports = ({onViewDocument, notifications, tenantMetadata}) => {
         }
     };
 
-    // Función para simular exportar (llama a la nueva API /documents/{id}/export)
     const handleExportToHis = async (docId, title) => {
         try {
             setLoading(true);
             info(`Iniciando exportación de "${title}"...`, 5000);
             const response = await clinicalService.exportDocument(docId);
 
-            // Re-cargar la lista sin notificar el listado (la notificación de éxito ya lo hace)
-            loadDocuments(false);
+            loadDocuments(false); // Recarga sutil tras la acción
 
             success(`Documento "${title}" enviado al HIS (Proceso Asíncrono Iniciado).`, 7000);
         } catch (e) {
@@ -130,7 +132,7 @@ const Reports = ({onViewDocument, notifications, tenantMetadata}) => {
                 className="flex justify-between items-center bg-white/70 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-gray-200/50">
                 <h2 className="text-3xl font-bold text-gray-900">📄 Historial de Documentos Generados</h2>
                 <motion.button
-                    onClick={handleManualLoad} // Llama a la función que notifica
+                    onClick={handleRefreshLoad} // Usamos la nueva función para recargar/notificar
                     className="p-3 bg-indigo-500/10 text-indigo-600 rounded-full hover:bg-indigo-500/20 transition-colors"
                     whileHover={{rotate: 90}}
                 >
@@ -139,8 +141,9 @@ const Reports = ({onViewDocument, notifications, tenantMetadata}) => {
             </div>
 
             {/* Filtros y Búsqueda */}
+            {/* **CAMBIO CLAVE 4:** Eliminamos la columna y el botón "Aplicar Filtros". */}
             <div
-                className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-white/70 rounded-2xl shadow-md border border-gray-100">
+                className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-white/70 rounded-2xl shadow-md border border-gray-100">
                 <div className="relative">
                     <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2"/>
                     <input
@@ -161,13 +164,6 @@ const Reports = ({onViewDocument, notifications, tenantMetadata}) => {
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
                 </select>
-                <motion.button
-                    onClick={handleManualLoad} // Llama a la función que notifica
-                    className="py-2.5 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-xl font-semibold shadow-md hover:from-blue-500 hover:to-cyan-400 transition-all"
-                    whileTap={{scale: 0.98}}
-                >
-                    Aplicar Filtros
-                </motion.button>
             </div>
 
             {loading ? (
