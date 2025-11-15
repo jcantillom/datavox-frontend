@@ -174,21 +174,21 @@ const DocumentView = ({ documentId, onBack, notifications, tenantMetadata }) => 
         });
 
         return (
-            <div className="grid grid-cols-2 gap-y-1.5 gap-x-6 text-[0.8rem] text-slate-800 mt-3">
+            <div className="grid grid-cols-2 gap-y-2 gap-x-6 text-sm text-slate-800 mt-4 bg-blue-50 p-3 rounded-lg border border-blue-200">
                 <p>
-                    <User className="inline-block w-3.5 h-3.5 mr-2 align-middle text-blue-700" />
+                    <User className="inline-block w-4 h-4 mr-2 align-middle text-blue-600" />
                     <span className="font-semibold">Paciente ID:</span> {patientId}
                 </p>
                 <p className="text-right">
-                    <Stethoscope className="inline-block w-3.5 h-3.5 mr-2 align-middle text-blue-700" />
+                    <Stethoscope className="inline-block w-4 h-4 mr-2 align-middle text-blue-600" />
                     <span className="font-semibold">Médico:</span> {doctorName}
                 </p>
                 <p>
-                    <AlignLeft className="inline-block w-3.5 h-3.5 mr-2 align-middle text-blue-700" />
+                    <AlignLeft className="inline-block w-4 h-4 mr-2 align-middle text-blue-600" />
                     <span className="font-semibold">Asunto:</span> {subject}
                 </p>
                 <p className="text-right">
-                    <Calendar className="inline-block w-3.5 h-3.5 mr-2 align-middle text-blue-700" />
+                    <Calendar className="inline-block w-4 h-4 mr-2 align-middle text-blue-600" />
                     <span className="font-semibold">Fecha:</span> {date}
                 </p>
             </div>
@@ -200,14 +200,14 @@ const DocumentView = ({ documentId, onBack, notifications, tenantMetadata }) => 
         const institutionName = tenantMetadata?.name || 'Institución Médica';
 
         return (
-            <div className="print-footer text-center text-[0.7rem] text-slate-600 mt-8 pt-3 border-t border-slate-300">
+            <div className="print-footer text-center text-xs text-slate-600 mt-8 pt-4 border-t border-slate-300">
                 <p className="font-semibold text-slate-800">{institutionName}</p>
                 <p className="mt-1 flex items-center justify-center">
                     <Mail className="inline-block w-3 h-3 mr-1 align-middle" /> contact@datavox.com
                     <span className="mx-2">|</span>
                     <Briefcase className="inline-block w-3 h-3 mr-1 align-middle" /> {legalId}
                 </p>
-                <p className="mt-1.5 text-slate-500">
+                <p className="mt-2 text-slate-500">
                     Plataforma Inteligente de Salud potenciada por DataVoxMedical
                 </p>
             </div>
@@ -290,7 +290,7 @@ const DocumentView = ({ documentId, onBack, notifications, tenantMetadata }) => 
                     <MembreteHeader tenantMetadata={tenantMetadata} isPrintMode={false} />
                 </div>
 
-                <div className="px-5 pb-4 pt-0 print:p-8 print:m-0">
+                <div className="px-5 pb-4 pt-0 print:p-0 print:m-0">
                     {/* Bloque de Metadata (OCULTAR para impresión) */}
                     <div className="mb-5 pb-5 border-b border-slate-200 print:hidden">
                         <div className="mb-3 flex flex-wrap items-start justify-between gap-4">
@@ -418,36 +418,45 @@ const DocumentView = ({ documentId, onBack, notifications, tenantMetadata }) => 
                                 text-slate-800 text-sm
                                 whitespace-pre-wrap
                                 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]
-                                print:shadow-none print:bg-white print:border-none print:p-0 print:text-black print:whitespace-pre-line
+                                print:shadow-none print:bg-transparent print:border-none print:p-0 print:text-black print:whitespace-pre-line
                             "
                         >
                             {/* --- CONTENIDO PARA IMPRESIÓN (PDF) --- */}
-                            <div className="hidden print:block print:p-0 print:m-0 print:w-full print:h-full print:flex print:flex-col">
-                                {/* Membrete y cabecera */}
-                                <MembreteHeader
-                                    tenantMetadata={tenantMetadata}
-                                    isPrintMode={true}
-                                />
+                            <div className="hidden print:block">
+                                <div className="max-w-3xl mx-auto pt-4 pb-8 px-6">
+                                    {/* Membrete para PDF */}
+                                    <MembreteHeader
+                                        tenantMetadata={tenantMetadata}
+                                        isPrintMode={true}
+                                    />
 
-                                <div className="mt-3 mb-4">
-                                    <p className="text-[0.7rem] font-semibold uppercase tracking-[0.26em] text-slate-500">
-                                        Documento clínico
-                                    </p>
-                                    <h1 className="mt-1 text-2xl font-extrabold text-slate-900 tracking-tight">
-                                        {docConfig.label}
-                                    </h1>
+                                    {/* Encabezado tipo de documento + paciente */}
+                                    <div className="text-left mb-6 mt-4">
+                                        <p className="text-xs font-semibold tracking-[0.26em] text-slate-500 uppercase mb-1">
+                                            Documento clínico
+                                        </p>
+                                        <div className="flex items-center space-x-4 mb-3">
+                                            <div className="w-11 h-11 bg-gradient-to-br from-blue-600 to-teal-500 flex items-center justify-center rounded-xl shadow-md">
+                                                {React.createElement(docConfig.dual_icon, {
+                                                    className: 'w-6 h-6 text-white'
+                                                })}
+                                            </div>
+                                            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+                                                {docConfig.label}
+                                            </h1>
+                                        </div>
+
+                                        {getPrintPatientData()}
+                                    </div>
+
+                                    {/* Cuerpo del informe */}
+                                    <div className="mt-5 text-[0.9rem] leading-relaxed text-slate-900">
+                                        {getCleanContent()}
+                                    </div>
+
+                                    {/* Pie de página */}
+                                    {getPrintFooter()}
                                 </div>
-
-                                {/* Datos del paciente / estudio */}
-                                {getPrintPatientData()}
-
-                                {/* Cuerpo del informe */}
-                                <div className="mt-6 text-[0.9rem] leading-relaxed text-slate-900">
-                                    {getCleanContent()}
-                                </div>
-
-                                {/* Pie de página institucional */}
-                                {getPrintFooter()}
                             </div>
 
                             {/* Contenido para la vista normal (no impresión) */}

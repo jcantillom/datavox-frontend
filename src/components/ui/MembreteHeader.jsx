@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
     Mail, Phone, MapPin, Briefcase, Heart,
-    Shield, Award, Activity, Stethoscope, Cross
+    Shield, Award, Activity as ActivityIcon,
+    Stethoscope, Cross
 } from 'lucide-react';
 
 /**
@@ -134,7 +135,7 @@ const MembreteHeader = ({ tenantMetadata, isPrintMode = false }) => {
                         />
                     </motion.div>
 
-                    {/* Puntos médicos decorativos */}
+                    {/* Punto decorativo */}
                     <motion.div
                         className="absolute -top-1 -right-1 w-3 h-3 bg-teal-400 rounded-full shadow-md"
                         animate={{
@@ -166,7 +167,7 @@ const MembreteHeader = ({ tenantMetadata, isPrintMode = false }) => {
     // Badge de especialidad clínica
     const SpecialtyBadge = () => (
         <motion.div
-            className="flex items-center space-x-2 bg-gradient-to-r from-blue-500 to-teal-500 text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow-md"
+            className="inline-flex items-center space-x-2 bg-gradient-to-r from-blue-500 to-teal-500 text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow-md"
             whileHover={{ scale: 1.05 }}
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -190,7 +191,7 @@ const MembreteHeader = ({ tenantMetadata, isPrintMode = false }) => {
                 {/* Fondos animados médicos */}
                 <FloatingParticles />
 
-                {/* Efecto de ondas médicas */}
+                {/* Efecto de línea superior */}
                 <div className="absolute inset-0 opacity-10">
                     <motion.div
                         className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent"
@@ -294,7 +295,7 @@ const MembreteHeader = ({ tenantMetadata, isPrintMode = false }) => {
                             </div>
 
                             <div className="flex items-center space-x-1 bg-teal-100 px-2 py-1 rounded border border-teal-200">
-                                <Activity className="w-3 h-3 text-teal-600" />
+                                <ActivityIcon className="w-3 h-3 text-teal-600" />
                                 <span className="text-xs text-teal-700 font-semibold">
                                     ISO 13485
                                 </span>
@@ -310,34 +311,34 @@ const MembreteHeader = ({ tenantMetadata, isPrintMode = false }) => {
     return (
         <motion.div
             id="membrete-header-print"
-            className="w-full pb-4 mb-6 border-b border-slate-300 print:pb-3 print:mb-4"
+            className="w-full pb-4 mb-4 border-b border-slate-300"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
         >
             {/* Header Principal para Impresión */}
-            <div className="flex items-center justify-between mb-3 print:mb-2">
-                {/* Logo e Información de la Institución */}
-                <div className="flex items-center space-x-3 flex-1">
-                    {renderLogo()}
-                    <div className="text-left flex-1">
-                        <h1 className="text-xl font-bold text-slate-800 tracking-tight print:text-lg">
-                            {institutionName}
-                        </h1>
-                        {slogan && (
-                            <p className="text-xs text-teal-700 font-medium mt-1 print:text-xs">
-                                {slogan}
-                            </p>
-                        )}
-                        <div className="flex items-center space-x-2 mt-1">
-                            <div className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold border border-blue-200">
-                                {institutionSpecialty}
-                            </div>
-                        </div>
+            <div className="grid grid-cols-[auto,minmax(0,2fr),minmax(0,1.4fr)] gap-3 items-start mb-2">
+                {/* Columna logo */}
+                <div className="pt-1">{renderLogo()}</div>
+
+                {/* Nombre y especialidad */}
+                <div className="text-left">
+                    <h1 className="text-xl font-bold text-slate-800 tracking-tight print:text-lg">
+                        {institutionName}
+                    </h1>
+                    {slogan && (
+                        <p className="text-xs text-teal-700 font-medium mt-1 print:text-xs">
+                            {slogan}
+                        </p>
+                    )}
+                    <div className="mt-1">
+                        <span className="inline-block bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold border border-blue-200">
+                            {institutionSpecialty}
+                        </span>
                     </div>
                 </div>
 
                 {/* Información de Contacto */}
-                <div className="text-right text-xs text-slate-700 space-y-1 print:text-[0.65rem]">
+                <div className="text-right text-xs text-slate-700 space-y-1 print:text-2xs">
                     {address && (
                         <div className="flex items-center justify-end space-x-1">
                             <MapPin className="w-3 h-3 text-blue-600 print:w-2 print:h-2" />
@@ -375,7 +376,7 @@ const MembreteHeader = ({ tenantMetadata, isPrintMode = false }) => {
             </div>
 
             {/* Información de Contacto Inferior */}
-            <div className="flex justify-between items-center mt-2 text-[0.65rem] text-slate-600 print:mt-1">
+            <div className="flex justify-between items-center mt-2 text-2xs text-slate-600 print:mt-1">
                 <div className="flex items-center space-x-3">
                     <span className="flex items-center space-x-1">
                         <Mail className="w-2 h-2 text-blue-600" />
